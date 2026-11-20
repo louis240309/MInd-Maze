@@ -10,7 +10,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: CLIENT_URL
-        value: https://mind-maze.onrender.com
+        value: https://m-ind-maze.vercel.app
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_SECRET_KEY
