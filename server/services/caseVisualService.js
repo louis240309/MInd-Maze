@@ -58,7 +58,13 @@ export class CaseVisualService {
     const assets = await Promise.all((data || []).map(async (asset) => {
       let imageUrl = null;
       if (asset.status === "ready" && asset.storage_path) {
-        const { data: signed } = await supabase.storage.from(BUCKET).createSignedUrl(asset.storage_path, 3600);
+        const { data: signed, error: signingError } = await supabase.storage.from(BUCKET).createSignedUrl(asset.storage_path, 3600);
+        if (signingError) {
+          const error = new Error("Stored case images could not be accessed. Check the visual storage bucket configuration.");
+          error.statusCode = 503;
+          error.cause = signingError;
+          throw error;
+        }
         imageUrl = signed?.signedUrl || null;
       }
       const { storage_path, ...publicAsset } = asset;

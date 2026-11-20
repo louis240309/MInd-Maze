@@ -91,6 +91,10 @@ router.get("/:id/visuals", async (req, res, next) => {
     if (!game) return res.status(404).json({ success: false, message: "Case file not found or access restricted." });
     res.set("Cache-Control", "no-store");
     const visuals = await caseVisualService.getAssets(game.id);
+    if (visuals.status === "not_started") {
+      caseVisualService.enqueue(game);
+      visuals.status = "queued";
+    }
     res.json({ success: true, visuals });
   } catch (error) { next(error); }
 });
@@ -269,4 +273,3 @@ router.post("/:id/archive", async (req, res, next) => {
 });
 
 export default router;
-
