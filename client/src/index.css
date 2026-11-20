@@ -372,7 +372,15 @@ a {
 .case-visual-image { display: flex; width: 100%; aspect-ratio: 4 / 3; align-items: center; justify-content: center; border: 0; padding: 0; background: #272b32; color: #d3c7b5; cursor: zoom-in; }
 .case-visual-image:disabled { cursor: default; }
 .case-visual-image img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.case-visual-image span { display: grid; place-items: center; gap: 8px; text-align: center; padding: 16px; }
+.case-visual-placeholder { width: 100%; height: 100%; min-height: 100px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; overflow: hidden; background: radial-gradient(ellipse at 50% 42%, #35404b 0, #222b35 58%, #171d26 100%); color: #b7c3ca; }
+.case-visual-placeholder svg { width: min(100%, 300px); max-height: 80%; }
+.case-visual-placeholder .placeholder-frame { fill: none; stroke: rgba(209, 185, 143, .25); stroke-width: 2; }
+.case-visual-placeholder .placeholder-line { fill: none; stroke: #91a1a5; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; opacity: .8; }
+.case-visual-placeholder .placeholder-accent { fill: rgba(190, 149, 104, .28); stroke: #c1a477; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
+.case-visual-placeholder .placeholder-dot { fill: #d3b47e; }
+.case-visual-placeholder > span { color: #d2bd98; font: 700 .62rem var(--font-mono); letter-spacing: .12em; }
+.case-visual-placeholder.compact { min-height: 0; border-radius: 9px; background: linear-gradient(145deg, #303945, #171d26); }
+.case-visual-placeholder.compact svg { width: 100%; height: 100%; }
 .case-visual-card-copy { padding: 15px 16px 18px; }
 .case-visual-card-copy h3, .case-board-card h3 { margin: 9px 0 6px; color: #2b2523; font-size: 1.05rem; }
 .case-visual-card-copy p, .case-board-card p { color: #554b43; line-height: 1.5; margin: 0; font-size: .9rem; }

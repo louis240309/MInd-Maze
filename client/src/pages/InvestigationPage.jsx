@@ -7,6 +7,7 @@ import { HintSystem } from "../components/HintSystem";
 import { AccusationConsole } from "../components/AccusationConsole";
 import { StatusBadge } from "../components/StatusBadge";
 import { DifficultyBadge } from "../components/DifficultyBadge";
+import { CaseVisualPlaceholder } from "../components/CaseVisualPlaceholder";
 import {
   ArrowLeft,
   Archive,
@@ -24,11 +25,24 @@ import {
 
 const CASE_TABS = ["Overview", "Crime Scene", "Evidence Gallery", "Suspects", "Investigation Board"];
 
-const VisualImage = ({ asset, onOpen }) => (
-  <button type="button" onClick={() => asset.image_url && onOpen(asset)} className="case-visual-image" disabled={!asset.image_url} aria-label={asset.image_url ? `Open ${asset.name}` : `${asset.name} image is not ready`}>
-    {asset.image_url ? <img src={asset.image_url} alt={asset.name} loading="lazy" /> : <span><ImageIcon size={24} />{asset.status === "pending" ? "Generating image…" : "Image unavailable"}</span>}
-  </button>
-);
+const VisualImage = ({ asset, onOpen }) => {
+  const [failedImageUrl, setFailedImageUrl] = useState(null);
+  const imageUrl = asset.image_url === failedImageUrl ? null : asset.image_url;
+
+  return (
+    <button
+      type="button"
+      onClick={() => imageUrl && onOpen(asset)}
+      className="case-visual-image"
+      disabled={!imageUrl}
+      aria-label={imageUrl ? `Open ${asset.name}` : `${asset.name}; showing illustrative placeholder`}
+    >
+      {imageUrl
+        ? <img src={imageUrl} alt={asset.name} loading="lazy" onError={() => setFailedImageUrl(imageUrl)} />
+        : <CaseVisualPlaceholder type={asset.asset_type} />}
+    </button>
+  );
+};
 
 const EmptyVisualState = ({ text }) => <div className="case-visual-empty"><ImageIcon size={28} /><p>{text}</p></div>;
 

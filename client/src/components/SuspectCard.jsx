@@ -1,5 +1,6 @@
-import React from "react";
-import { User, AlertTriangle, ShieldCheck, Quote, CheckCircle } from "lucide-react";
+import React, { useState } from "react";
+import { AlertTriangle, ShieldCheck, Quote, CheckCircle } from "lucide-react";
+import { CaseVisualPlaceholder } from "./CaseVisualPlaceholder";
 
 export const SuspectCard = ({
   suspect,
@@ -9,6 +10,9 @@ export const SuspectCard = ({
   isGuilty,
   imageUrl,
 }) => {
+  const [failedImageUrl, setFailedImageUrl] = useState(null);
+  const visibleImageUrl = imageUrl === failedImageUrl ? null : imageUrl;
+
   return (
     <div
       onClick={!isSolved ? onSelect : undefined}
@@ -60,7 +64,9 @@ export const SuspectCard = ({
               flexShrink: 0,
             }}
           >
-            {imageUrl ? <img src={imageUrl} alt={suspect.name} style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "9px" }} /> : <User size={24} />}
+            {visibleImageUrl
+              ? <img src={visibleImageUrl} alt={suspect.name} onError={() => setFailedImageUrl(visibleImageUrl)} style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "9px" }} />
+              : <CaseVisualPlaceholder type="suspect" compact />}
           </div>
 
           <div>
