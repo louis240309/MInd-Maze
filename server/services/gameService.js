@@ -41,7 +41,6 @@ export class GameService {
       .from("games")
       .select("*")
       .eq("user_id", userId);
-
     if (status && status !== "all") {
       query = query.eq("status", status);
     }

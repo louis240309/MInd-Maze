@@ -101,6 +101,19 @@ Visit [http://localhost:5173](http://localhost:5173) in your browser.
 
 ---
 
+## Render deployment
+
+Deploy this repository from [render.yaml](./render.yaml) as a Render Blueprint. It configures one Node.js web service that builds the React client and serves it together with the Express API.
+
+If you configure the service manually, use:
+- **Build Command:** `npm ci --prefix client && npm run build --prefix client && npm ci --omit=dev --prefix server`
+- **Start Command:** `npm start --prefix server`
+- **Health Check Path:** `/api/health`
+
+Set `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, and `GEMINI_API_KEY` in the Render environment. The build command must be `npm run build` within `client/`; never use `npm build` at the repository root.
+
+---
+
 ## 🔑 Gemini API Key Configuration
 
 To enable live AI generation using Gemini:

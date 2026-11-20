@@ -1,5 +1,7 @@
 import express from "express";
 import cors from "cors";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
 import helmet from "helmet";
 import { supabase } from "./config/supabase.js";
@@ -39,16 +41,6 @@ app.use(express.json({ limit: "1mb" }));
 // General Rate Limiting
 app.use("/api", apiLimiter);
 
-// Welcome route
-app.get("/", (req, res) => {
-  res.json({
-    name: "MindMaze API",
-    version: "1.0.0",
-    description: "AI-Powered Mystery Investigation Game API",
-    status: "online",
-  });
-});
-
 // Database & Service Health Check
 app.get("/api/health", async (req, res) => {
   try {
@@ -83,6 +75,17 @@ app.use("/api/auth", authRoutes);
 app.use("/api/games", gameRoutes);
 app.use("/api/users", userRoutes);
 
+// Serve the built React application from the same web service.
+const serverDirectory = path.dirname(fileURLToPath(import.meta.url));
+const clientDistDirectory = path.resolve(serverDirectory, "../client/dist");
+app.use(express.static(clientDistDirectory));
+app.use((req, res, next) => {
+  if (req.method === "GET" && !req.path.startsWith("/api")) {
+    return res.sendFile(path.join(clientDistDirectory, "index.html"));
+  }
+  next();
+});
+
 // 404 Handler
 app.use(notFoundHandler);
 
@@ -90,17 +93,17 @@ app.use(notFoundHandler);
 app.use(errorHandler);
 
 // Start server
-const PORT = process.env.PORT || 5001;
-const HOST = process.env.HOST || "127.0.0.1";
 
-const server = app.listen(PORT, HOST, (error) => {
+
+const PORT = process.env.PORT || 5001;
+
+const server = app.listen(PORT, "0.0.0.0", (error) => {
   if (error) {
-    console.error(`[MindMaze] Failed to listen on ${HOST}:${PORT}: ${error.code || error.message}`);
-    process.exitCode = 1;
-    return;
+    console.error(`[MindMaze] Server failed: ${error.message}`);
+    process.exit(1);
   }
 
-  server.ref();
   console.log(`[MindMaze] Server running on port ${PORT}`);
+  console.log(`[MindMaze] Listening on 0.0.0.0`);
   console.log(`[MindMaze] Allowed client: ${clientUrl}`);
 });

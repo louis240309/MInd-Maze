@@ -1,0 +1,8 @@
+{
+  "name": "mind-maze",
+  "private": true,
+  "scripts": {
+    "build": "npm ci --prefix client && npm run build --prefix client",
+    "start": "npm ci --omit=dev --prefix server && npm start --prefix server"
+  }
+}
