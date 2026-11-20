@@ -18,6 +18,7 @@ import {
   Flame,
   Compass,
   AlertCircle,
+  Trophy,
 } from "lucide-react";
 
 export const ProfilePage = () => {
@@ -316,6 +317,13 @@ export const ProfilePage = () => {
             label="Forensic Hints"
             value={stats ? stats.total_hints_used : "--"}
             subtext={`Avg ${stats?.avg_hints_per_case || 0} per case`}
+            color="#fbbf24"
+          />
+          <StatCard
+            icon={Trophy}
+            label="Points"
+            value={stats ? stats.total_points : "--"}
+            subtext="Earned from solved cases"
             color="#fbbf24"
           />
         </div>

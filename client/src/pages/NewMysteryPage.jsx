@@ -262,7 +262,7 @@ export const NewMysteryPage = () => {
                     <Sparkles size={18} /> Easy
                   </div>
                   <p style={{ fontSize: "0.825rem", color: "var(--text-muted)", lineHeight: "1.4" }}>
-                    Clear clues and simple checks of each person's story.
+                    Clear clues and simple story checks. 100 points; each hint costs 25.
                   </p>
                 </div>
 
@@ -286,7 +286,7 @@ export const NewMysteryPage = () => {
                     <Shield size={18} /> Medium
                   </div>
                   <p style={{ fontSize: "0.825rem", color: "var(--text-muted)", lineHeight: "1.4" }}>
-                    Harder clues and stories that do not quite fit.
+                    Harder clues and stories that do not quite fit. 200 points; each hint costs 25.
                   </p>
                 </div>
 
@@ -310,7 +310,7 @@ export const NewMysteryPage = () => {
                     <Flame size={18} /> Hard
                   </div>
                   <p style={{ fontSize: "0.825rem", color: "var(--text-muted)", lineHeight: "1.4" }}>
-                    Clues that fit together in less obvious ways.
+                    Clues that fit together in less obvious ways. 300 points; each hint costs 25.
                   </p>
                 </div>
               </div>

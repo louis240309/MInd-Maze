@@ -11,6 +11,7 @@ import {
   CheckCircle2,
   FolderOpen,
   BarChart3,
+  Trophy,
   Sparkles,
   AlertCircle,
 } from "lucide-react";
@@ -175,6 +176,13 @@ export const DashboardPage = () => {
             value={stats ? `${stats.solve_rate}%` : "--"}
             subtext={`Avg ${stats?.avg_hints_per_case || 0} hints / case`}
             color="#38bdf8"
+          />
+          <StatCard
+            icon={Trophy}
+            label="Points"
+            value={stats ? stats.total_points : "--"}
+            subtext="Earned from solved cases"
+            color="#fbbf24"
           />
         </div>
 

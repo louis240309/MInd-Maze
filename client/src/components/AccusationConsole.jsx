@@ -15,6 +15,7 @@ export const AccusationConsole = ({
   isSubmitting,
   evaluationResult,
   solution,
+  pointsEarned,
   isSolved,
 }) => {
   const [errorMsg, setErrorMsg] = useState("");
@@ -81,7 +82,7 @@ export const AccusationConsole = ({
                 Case Solved
               </h3>
               <p style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>
-                You found the guilty person.
+                You found the guilty person and earned {pointsEarned} points.
               </p>
             </div>
           </div>

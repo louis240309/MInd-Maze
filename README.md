@@ -28,6 +28,7 @@ MindMaze is a full-stack detective game powered by generative AI. Step into the 
 
 - **Case Management & Dashboard**
   - View real-time statistics: total cases, active investigations, solved cases, and accuracy rate.
+  - Earn 100/200/300 points for easy/medium/hard cases; each hint used lowers the award by 25 points.
   - Filter by status (`active`, `solved`, `archived`) and difficulty (`easy`, `medium`, `hard`).
   - Search case files by title or story keywords and sort chronologically.
   - Full CRUD operations: create, read, edit titles, archive/restore, and delete cases.
@@ -112,6 +113,8 @@ If you configure the service manually, use:
 - **Health Check Path:** `/api/health`
 
 Set `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, and `GEMINI_API_KEY` in the Render environment. The build command must be `npm run build` within `client/`; never use `npm build` at the repository root.
+
+Apply new SQL files in `supabase/migrations/` to the Supabase project before deploying backend changes that use new database columns.
 
 ---
 

@@ -3,6 +3,17 @@ import { geminiService } from "./geminiService.js";
 import { randomUUID } from "node:crypto";
 
 export class GameService {
+  static calculatePointsEarned(difficulty, hintCount) {
+    const pointsByDifficulty = { easy: 100, medium: 200, hard: 300 };
+    const basePoints = pointsByDifficulty[difficulty];
+    if (!Object.hasOwn(pointsByDifficulty, difficulty)) {
+      throw new Error(`Cannot calculate points for unknown difficulty: ${difficulty}`);
+    }
+
+    const hintsUsed = Math.min(Math.max(Number(hintCount) || 0, 0), 3);
+    return Math.max(0, basePoints - hintsUsed * 25);
+  }
+
   /**
    * Sanitizes a game object so confidential solutions and unrevealed hints are not leaked
    */
@@ -22,6 +33,7 @@ export class GameService {
       suspects: game.suspects,
       clues: game.clues,
       hint_count: revealedHintCount,
+      points_earned: game.points_earned || 0,
       // Only include hints up to hint_count
       hints: allHints.slice(0, revealedHintCount),
       total_hints: 3,
@@ -144,6 +156,7 @@ export class GameService {
       hints: mystery.hints,
       solution: mystery.solution,
       hint_count: 0,
+      points_earned: 0,
       status: "active",
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -271,6 +284,7 @@ export class GameService {
         correct: true,
         message: "This mystery has already been successfully solved!",
         solution: game.solution,
+        points_earned: game.points_earned || 0,
         status: "solved",
       };
     }
@@ -284,24 +298,47 @@ export class GameService {
     });
 
     if (evaluation.isCorrect) {
-      // Mark game as solved in database
+      const pointsEarned = GameService.calculatePointsEarned(game.difficulty, game.hint_count);
       const { data: updatedCase, error } = await supabase
         .from("games")
         .update({
           status: "solved",
+          points_earned: pointsEarned,
           updated_at: new Date().toISOString(),
         })
         .eq("id", gameId)
         .eq("user_id", userId)
-        .select("id")
+        .neq("status", "solved")
+        .select("id, points_earned")
         .maybeSingle();
 
-      if (error || !updatedCase) {
+      if (error) {
         console.error("[GameService.solveMystery] Status update error:", error);
         const saveError = new Error("Your deduction was correct, but the case status could not be saved. Please retry; the solution remains sealed until the update succeeds.");
         saveError.statusCode = 503;
         saveError.retryable = true;
-        saveError.cause = error || new Error("Case update returned no matching row.");
+        saveError.cause = error;
+        throw saveError;
+      }
+
+      if (!updatedCase) {
+        const latestGame = await this._getRawGame(gameId, userId);
+        if (latestGame?.status === "solved") {
+          return {
+            success: true,
+            already_solved: true,
+            correct: true,
+            message: "This mystery has already been successfully solved!",
+            solution: latestGame.solution,
+            points_earned: latestGame.points_earned || 0,
+            status: "solved",
+          };
+        }
+
+        const saveError = new Error("Your deduction was correct, but the case status could not be saved. Please retry; the solution remains sealed until the update succeeds.");
+        saveError.statusCode = 503;
+        saveError.retryable = true;
+        saveError.cause = new Error("Case update returned no matching row.");
         throw saveError;
       }
 
@@ -311,6 +348,7 @@ export class GameService {
         status: "solved",
         feedback: evaluation.feedback,
         solution: game.solution,
+        points_earned: updatedCase.points_earned,
       };
     }
 
@@ -330,7 +368,7 @@ export class GameService {
   async getUserStatistics(userId) {
     const { data: games, error } = await supabase
       .from("games")
-      .select("id, status, difficulty, hint_count")
+      .select("id, status, difficulty, hint_count, points_earned")
       .eq("user_id", userId);
 
     if (error) {
@@ -343,6 +381,9 @@ export class GameService {
     const active = games ? games.filter((g) => g.status === "active").length : 0;
     const archived = games ? games.filter((g) => g.status === "archived").length : 0;
     const totalHintsUsed = games ? games.reduce((sum, g) => sum + (g.hint_count || 0), 0) : 0;
+    const totalPoints = games
+      ? games.reduce((sum, game) => sum + (game.status === "solved" ? game.points_earned || 0 : 0), 0)
+      : 0;
     const solveRate = total > 0 ? Math.round((solved / total) * 100) : 0;
     const avgHintsPerCase = total > 0 ? (totalHintsUsed / total).toFixed(1) : 0;
 
@@ -368,6 +409,7 @@ export class GameService {
       solved_cases: solved,
       active_cases: active,
       archived_cases: archived,
+      total_points: totalPoints,
       solve_rate: solveRate,
       total_hints_used: totalHintsUsed,
       avg_hints_per_case: Number(avgHintsPerCase),

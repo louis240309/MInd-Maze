@@ -103,6 +103,7 @@ export const InvestigationPage = () => {
           ...prev,
           status: "solved",
           solution: res.data.solution,
+          points_earned: res.data.points_earned || 0,
         }));
       }
     } catch (err) {
@@ -467,6 +468,7 @@ export const InvestigationPage = () => {
             isSubmitting={isSubmittingSolve}
             evaluationResult={evaluationResult}
             solution={game.solution}
+            pointsEarned={game.points_earned || 0}
             isSolved={isSolved}
           />
         </section>

@@ -80,6 +80,22 @@ export const MysteryCard = ({
           </span>
         </div>
 
+        {isSolved && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              marginTop: "8px",
+              fontSize: "0.8rem",
+              color: "#fbbf24",
+            }}
+          >
+            <CheckCircle size={13} />
+            <strong>{game.points_earned || 0} points earned</strong>
+          </div>
+        )}
+
         {/* Title / Inline Edit */}
         {isEditing ? (
           <form onSubmit={handleSaveTitle} style={{ display: "flex", gap: "6px", marginBottom: "8px" }}>
@@ -174,6 +190,23 @@ export const MysteryCard = ({
             unlocked
           </span>
         </div>
+
+        {isSolved && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              marginTop: "8px",
+              fontSize: "0.8rem",
+              color: "#fbbf24",
+            }}
+          >
+            <CheckCircle size={13} />
+            <strong>{game.points_earned || 0} points earned</strong>
+          </div>
+        )}
+
       </div>
 
       {/* Action Footer */}
