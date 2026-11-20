@@ -17,7 +17,20 @@ import {
   FileText,
   Users,
   Search,
+  Camera,
+  Image as ImageIcon,
+  RefreshCw,
 } from "lucide-react";
+
+const CASE_TABS = ["Overview", "Crime Scene", "Evidence Gallery", "Suspects", "Investigation Board"];
+
+const VisualImage = ({ asset, onOpen }) => (
+  <button type="button" onClick={() => asset.image_url && onOpen(asset)} className="case-visual-image" disabled={!asset.image_url} aria-label={asset.image_url ? `Open ${asset.name}` : `${asset.name} image is not ready`}>
+    {asset.image_url ? <img src={asset.image_url} alt={asset.name} loading="lazy" /> : <span><ImageIcon size={24} />{asset.status === "pending" ? "Generating image…" : "Image unavailable"}</span>}
+  </button>
+);
+
+const EmptyVisualState = ({ text }) => <div className="case-visual-empty"><ImageIcon size={28} /><p>{text}</p></div>;
 
 export const InvestigationPage = () => {
   const { id } = useParams();
@@ -26,6 +39,11 @@ export const InvestigationPage = () => {
   const [game, setGame] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+  const [activeTab, setActiveTab] = useState("Overview");
+  const [visuals, setVisuals] = useState({ status: "not_started", error: null, assets: [] });
+  const [visualError, setVisualError] = useState("");
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [isRetryingVisuals, setIsRetryingVisuals] = useState(false);
 
   // Edit title state
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -62,6 +80,39 @@ export const InvestigationPage = () => {
   useEffect(() => {
     fetchGame();
   }, [fetchGame]);
+
+  const fetchVisuals = useCallback(async () => {
+    try {
+      const response = await api.get(`/games/${id}/visuals`);
+      setVisuals(response.data.visuals);
+      setVisualError("");
+      return response.data.visuals?.status;
+    } catch (err) {
+      setVisualError(err.response?.data?.message || "Visual case files are not available yet.");
+      return "error";
+    }
+  }, [id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!["not_started", "queued", "processing"].includes(visuals.status)) return undefined;
+    const poll = async () => {
+      const status = await fetchVisuals();
+      if (!cancelled && ["queued", "processing"].includes(status)) timer = window.setTimeout(poll, 5000);
+    };
+    let timer = window.setTimeout(poll, 300);
+    return () => { cancelled = true; window.clearTimeout(timer); };
+  }, [fetchVisuals, visuals.status]);
+
+  const handleVisualRetry = async () => {
+    setIsRetryingVisuals(true);
+    try {
+      await api.post(`/games/${id}/visuals/retry`);
+      setVisuals((previous) => ({ ...previous, status: "queued", error: null }));
+    } catch (err) {
+      setVisualError(err.response?.data?.message || "Could not retry image generation.");
+    } finally { setIsRetryingVisuals(false); }
+  };
 
   // Request Hint Handler
   const handleRequestHint = async () => {
@@ -384,6 +435,59 @@ export const InvestigationPage = () => {
           </div>
         </div>
 
+        <nav className="case-file-tabs" aria-label="Investigation file sections">
+          {CASE_TABS.map((tab) => <button key={tab} type="button" aria-current={activeTab === tab ? "page" : undefined} className={activeTab === tab ? "active" : ""} onClick={() => setActiveTab(tab)}>{tab}</button>)}
+        </nav>
+
+        {activeTab === "Overview" && <>
+        {/* SECTION 1: THE THREE SUSPECTS */}
+        <section style={{ marginBottom: "40px" }}>
+          <h2 className="case-section-title"><Users size={22} color="var(--accent-cyan)" /> Case summary</h2>
+          <p style={{ color: "var(--text-muted)" }}>Review the narrative, evidence, and profiles in their dedicated tabs.</p>
+        </section>
+        <section style={{ marginBottom: "40px" }}>
+          <HintSystem
+            hints={game.hints || []}
+            hintCount={game.hint_count || 0}
+            maxHints={3}
+            onRequestHint={handleRequestHint}
+            isLoadingHint={isLoadingHint}
+            isSolved={isSolved}
+          />
+        </section>
+        <section>
+          <AccusationConsole
+            suspects={game.suspects || []}
+            selectedSuspectId={selectedSuspectId}
+            onSelectSuspect={(suspectId) => setSelectedSuspectId(suspectId)}
+            onSubmitGuess={handleSubmitGuess}
+            isSubmitting={isSubmittingSolve}
+            evaluationResult={evaluationResult}
+            solution={game.solution}
+            pointsEarned={game.points_earned || 0}
+            isSolved={isSolved}
+          />
+        </section>
+        </>}
+
+        {activeTab === "Crime Scene" && <section className="case-file-panel">
+          <h2 className="case-section-title"><Camera size={22} /> Crime scene photographs</h2>
+          <p className="case-file-caption">Fictional, non-graphic images based on this case file.</p>
+          {visuals.error && <p className="case-visual-alert" role="status">{visuals.error}</p>}
+          {visuals.status === "processing" || visuals.status === "queued" ? <div className="case-visual-empty"><RefreshCw className="case-spin" size={24} /><p>Preparing scene photographs… You can keep investigating.</p></div> : null}
+          {visuals.assets.filter((asset) => asset.asset_type === "crime_scene").length ? <div className="case-visual-grid">{visuals.assets.filter((asset) => asset.asset_type === "crime_scene").map((asset) => <article className="case-visual-card" key={asset.id}><VisualImage asset={asset} onOpen={setSelectedImage} /><div className="case-visual-card-copy"><span className="evidence-stamp">SCENE FILE</span><h3>{asset.name}</h3><p>{asset.description}</p></div></article>)}</div> : visuals.status !== "processing" && visuals.status !== "queued" ? <EmptyVisualState text={visualError || visuals.error || "Scene photographs have not been generated for this case."} /> : null}
+          {["failed", "partial"].includes(visuals.status) && <button type="button" className="btn btn-secondary" disabled={isRetryingVisuals} onClick={handleVisualRetry}><RefreshCw size={15} /> {isRetryingVisuals ? "Retrying…" : "Retry image generation"}</button>}
+        </section>}
+
+        {activeTab === "Evidence Gallery" && <section className="case-file-panel">
+          <h2 className="case-section-title"><Search size={22} /> Evidence gallery</h2>
+          <p className="case-file-caption">Filed evidence is available at case opening. Compare each item with the statements.</p>
+          {visuals.error && <p className="case-visual-alert" role="status">{visuals.error}</p>}
+          {(game.clues || []).length ? <div className="case-visual-grid">{game.clues.map((clue, index) => { const asset = visuals.assets.find((item) => item.asset_type === "evidence" && item.related_id === clue.id); return <article className="case-evidence-file" key={clue.id || index}><VisualImage asset={asset || { name: clue.name, status: "missing" }} onOpen={setSelectedImage} /><span className="evidence-stamp">{asset?.asset_key || `evidence_${clue.id || index + 1}`}</span>{asset && <small className="evidence-discovery">{asset.discovered_initially ? "Available at case opening" : "Unlocked during investigation"}</small>}<ClueCard clue={clue} index={index} /></article>; })}</div> : <EmptyVisualState text="No evidence has been filed for this case." />}
+          {["failed", "partial"].includes(visuals.status) && <button type="button" className="btn btn-secondary" disabled={isRetryingVisuals} onClick={handleVisualRetry}><RefreshCw size={15} /> {isRetryingVisuals ? "Retrying…" : "Retry image generation"}</button>}
+        </section>}
+
+        {activeTab === "Suspects" && <>
         {/* SECTION 1: THE THREE SUSPECTS */}
         <section style={{ marginBottom: "40px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "18px" }}>
@@ -406,6 +510,7 @@ export const InvestigationPage = () => {
           >
             {(game.suspects || []).map((suspect) => {
               const isGuilty = suspect.id === culpritId;
+              const portrait = visuals.assets.find((asset) => asset.asset_type === "suspect" && asset.related_id === suspect.id);
 
               return (
                 <SuspectCard
@@ -415,63 +520,29 @@ export const InvestigationPage = () => {
                   onSelect={() => setSelectedSuspectId(suspect.id)}
                   isSolved={isSolved}
                   isGuilty={isGuilty}
+                  imageUrl={portrait?.image_url}
                 />
               );
             })}
           </div>
         </section>
 
-        {/* SECTION 2: THE THREE CLUES */}
-        <section style={{ marginBottom: "40px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "18px" }}>
-            <Search size={22} color="#34d399" />
-            <h2 style={{ fontSize: "1.45rem", margin: 0 }}>
-              The Clues (3)
-            </h2>
-          </div>
-          <p style={{ color: "var(--text-muted)", fontSize: "0.9rem", marginBottom: "16px" }}>
-            Compare the clues with each person's story.
-          </p>
+        </>}
 
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(310px, 1fr))",
-              gap: "20px",
-            }}
-          >
-            {(game.clues || []).map((clue, idx) => (
-              <ClueCard key={clue.id || idx} clue={clue} index={idx} />
-            ))}
-          </div>
-        </section>
+        {activeTab === "Investigation Board" && <section className="case-file-panel">
+          <h2 className="case-section-title"><FileText size={22} /> Investigation board</h2>
+          <p className="case-file-caption">Cross-reference the filed scene, people, and evidence. Connections are left for your deduction.</p>
+          {visuals.error && <p className="case-visual-alert" role="status">{visuals.error}</p>}
+          {(visuals.assets.length || game.suspects?.length || game.clues?.length) ? <div className="case-board">
+            {(visuals.assets.filter((asset) => asset.asset_type === "crime_scene")).map((asset) => <article className="case-board-card scene" key={asset.id}><VisualImage asset={asset} onOpen={setSelectedImage} /><h3>{asset.name}</h3></article>)}
+            {(game.suspects || []).map((suspect) => { const portrait = visuals.assets.find((asset) => asset.asset_type === "suspect" && asset.related_id === suspect.id); return <article className="case-board-card" key={suspect.id}><VisualImage asset={portrait || { name: suspect.name, status: "missing" }} onOpen={setSelectedImage} /><h3>{suspect.name}</h3><p>{suspect.role}</p></article>; })}
+            {(game.clues || []).map((clue) => { const photo = visuals.assets.find((asset) => asset.asset_type === "evidence" && asset.related_id === clue.id); return <article className="case-board-card evidence" key={clue.id}><VisualImage asset={photo || { name: clue.name, status: "missing" }} onOpen={setSelectedImage} /><h3>{clue.name}</h3><p>{clue.description}</p></article>; })}
+          </div> : <EmptyVisualState text="Your board will fill as the case file is prepared." />}
+          {["failed", "partial"].includes(visuals.status) && <button type="button" className="btn btn-secondary" disabled={isRetryingVisuals} onClick={handleVisualRetry}><RefreshCw size={15} /> {isRetryingVisuals ? "Retrying…" : "Retry image generation"}</button>}
+        </section>}
 
-        {/* SECTION 3: PROGRESSIVE HINTS SYSTEM */}
-        <section style={{ marginBottom: "40px" }}>
-          <HintSystem
-            hints={game.hints || []}
-            hintCount={game.hint_count || 0}
-            maxHints={3}
-            onRequestHint={handleRequestHint}
-            isLoadingHint={isLoadingHint}
-            isSolved={isSolved}
-          />
-        </section>
+        {selectedImage && <div className="case-image-lightbox" role="dialog" aria-modal="true" aria-label={selectedImage.name} onClick={() => setSelectedImage(null)}><button type="button" className="case-lightbox-close" onClick={() => setSelectedImage(null)} aria-label="Close image">×</button><img src={selectedImage.image_url} alt={selectedImage.name} onClick={(event) => event.stopPropagation()} /><p>{selectedImage.name}</p></div>}
 
-        {/* SECTION 4: FORMAL INDICTMENT & ACCUSATION CONSOLE */}
-        <section>
-          <AccusationConsole
-            suspects={game.suspects || []}
-            selectedSuspectId={selectedSuspectId}
-            onSelectSuspect={(suspectId) => setSelectedSuspectId(suspectId)}
-            onSubmitGuess={handleSubmitGuess}
-            isSubmitting={isSubmittingSolve}
-            evaluationResult={evaluationResult}
-            solution={game.solution}
-            pointsEarned={game.points_earned || 0}
-            isSolved={isSolved}
-          />
-        </section>
       </div>
     </div>
   );

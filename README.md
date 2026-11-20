@@ -26,6 +26,12 @@ MindMaze is a full-stack detective game powered by generative AI. Step into the 
   - **Forensic Hint System**: Unlock up to 3 progressive hints to assist deductive analysis.
   - **Accusation Console**: Formally indict suspects and explain deduction to receive immediate forensic evaluation.
 
+- **AI Visual Case Files**
+  - Generates case-specific scene photographs, evidence images, and fictional suspect portraits through Gemini's image model.
+  - Presents a visual evidence gallery, suspect files, image viewer, and investigation board while keeping clues and accusations playable if images are unavailable.
+  - Stores image metadata in PostgreSQL and image files in a private Supabase Storage bucket; owner-checked API routes issue expiring image links.
+  - Image generation runs after a case is saved. It requires image-model quota/billing; image failures do not discard the mystery.
+
 - **Case Management & Dashboard**
   - View real-time statistics: total cases, active investigations, solved cases, and accuracy rate.
   - Earn 100/200/300 points for easy/medium/hard cases; each hint used lowers the award by 25 points.
@@ -72,7 +78,11 @@ JWT_SECRET=your-jwt-secret-key
 JWT_EXPIRES_IN=7d
 GEMINI_API_KEY=your-gemini-api-key
 GEMINI_MODEL=gemini-3.5-flash-lite # Optional primary model; server tries supported fallbacks
+GEMINI_IMAGE_MODEL=gemini-3.1-flash-image
+SUPABASE_VISUAL_BUCKET=case-visuals
 ```
+
+Before deploying the visual case-file pipeline, apply `supabase/migrations/20261120210000_case_visual_files.sql` to the Supabase project. This creates the private storage bucket and server-only metadata/job tables. For Render, set the same `GEMINI_IMAGE_MODEL` and `SUPABASE_VISUAL_BUCKET` values in the service environment.
 
 Start the backend:
 ```bash

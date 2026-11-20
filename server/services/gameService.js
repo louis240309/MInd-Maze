@@ -1,6 +1,7 @@
 import { supabase } from "../config/supabase.js";
 import { geminiService } from "./geminiService.js";
 import { randomUUID } from "node:crypto";
+import { caseVisualService } from "./caseVisualService.js";
 
 export class GameService {
   static calculatePointsEarned(difficulty, hintCount) {
@@ -209,6 +210,7 @@ export class GameService {
    * Delete game ensuring ownership
    */
   async deleteGame(gameId, userId) {
+    const storedPaths = await caseVisualService.getStoredPaths(gameId);
     const { error } = await supabase
       .from("games")
       .delete()
@@ -219,6 +221,8 @@ export class GameService {
       console.error("[GameService.deleteGame] Delete error:", error);
       throw new Error("Failed to delete case.");
     }
+
+    await caseVisualService.removeStoredFiles(storedPaths, gameId);
 
     return { success: true, message: "Case successfully removed from records." };
   }

@@ -7,6 +7,7 @@ export const SuspectCard = ({
   onSelect,
   isSolved,
   isGuilty,
+  imageUrl,
 }) => {
   return (
     <div
@@ -59,7 +60,7 @@ export const SuspectCard = ({
               flexShrink: 0,
             }}
           >
-            <User size={24} />
+            {imageUrl ? <img src={imageUrl} alt={suspect.name} style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "9px" }} /> : <User size={24} />}
           </div>
 
           <div>
@@ -79,6 +80,7 @@ export const SuspectCard = ({
             >
               {suspect.role}
             </span>
+            {suspect.age && <span style={{ display: "block", marginTop: "5px", color: "var(--text-muted)", fontSize: "0.78rem" }}>Age {suspect.age}</span>}
           </div>
         </div>
 
@@ -124,6 +126,11 @@ export const SuspectCard = ({
           </div>
         )}
       </div>
+
+      {(suspect.background || suspect.relationship) && <div style={{ color: "var(--text-muted)", fontSize: "0.84rem", lineHeight: 1.5 }}>
+        {suspect.background && <p style={{ margin: "0 0 5px" }}>{suspect.background}</p>}
+        {suspect.relationship && <p style={{ margin: 0 }}><strong style={{ color: "var(--text-main)" }}>Case connection:</strong> {suspect.relationship}</p>}
+      </div>}
 
       {/* Motive Details */}
       <div
