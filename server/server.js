@@ -26,12 +26,15 @@ const allowedOrigins = new Set([
   "http://localhost:5173",
   "http://127.0.0.1:5173",
 ]);
+const vercelPreviewOrigin = /^https:\/\/m-ind-maze(?:-[a-z0-9]+)*\.vercel\.app$/;
 app.use(
   cors({
     origin: (origin, callback) => {
       // Allow requests with no origin (like mobile apps, curl, or same-origin)
       if (!origin) return callback(null, true);
-      if (allowedOrigins.has(origin)) return callback(null, true);
+      if (allowedOrigins.has(origin) || vercelPreviewOrigin.test(origin)) {
+        return callback(null, true);
+      }
       return callback(new Error("Origin is not allowed by CORS."));
     },
     credentials: true,
