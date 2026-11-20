@@ -52,7 +52,7 @@ export const InvestigationPage = () => {
     } catch (err) {
       console.error("[InvestigationPage] Fetch error:", err);
       setError(
-        err.response?.data?.message || "Failed to retrieve confidential case dossier."
+        err.response?.data?.message || "Could not load this mystery."
       );
     } finally {
       setIsLoading(false);
@@ -77,7 +77,7 @@ export const InvestigationPage = () => {
         }));
       }
     } catch (err) {
-      alert(err.response?.data?.message || "Could not unlock forensic hint.");
+      alert(err.response?.data?.message || "Could not get a hint.");
     } finally {
       setIsLoadingHint(false);
     }
@@ -107,7 +107,7 @@ export const InvestigationPage = () => {
         }));
       }
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to submit accusation for review.");
+      alert(err.response?.data?.message || "Could not check your answer.");
     } finally {
       setIsSubmittingSolve(false);
     }
@@ -129,7 +129,7 @@ export const InvestigationPage = () => {
 
   // Delete Case Handler
   const handleDeleteCase = async () => {
-    if (!window.confirm("Permanently delete this case file? All progress and forensic notes will be lost.")) {
+    if (!window.confirm("Delete this mystery and all your progress? This cannot be undone.")) {
       return;
     }
     try {
@@ -182,7 +182,7 @@ export const InvestigationPage = () => {
             animation: "spin 1s linear infinite",
           }}
         />
-        <p>Unsealing confidential investigation dossier...</p>
+        <p>Loading mystery...</p>
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     );
@@ -202,13 +202,13 @@ export const InvestigationPage = () => {
           >
             <AlertCircle size={40} color="#f43f5e" style={{ margin: "0 auto 16px auto" }} />
             <h3 style={{ color: "#fff", marginBottom: "10px" }}>
-              Restricted or Missing Dossier
+              Mystery Not Found
             </h3>
             <p style={{ color: "#fda4af", fontSize: "0.95rem", marginBottom: "24px" }}>
-              {error || "Case dossier could not be retrieved. You may lack authorization."}
+              {error || "We could not find this mystery."}
             </p>
             <Link to="/dashboard" className="btn btn-secondary">
-              <ArrowLeft size={16} /> Return to Investigation HQ
+              <ArrowLeft size={16} /> Back to Dashboard
             </Link>
           </div>
         </div>
@@ -338,7 +338,7 @@ export const InvestigationPage = () => {
                 onClick={() => setIsEditingTitle(true)}
                 className="btn btn-ghost btn-sm"
                 style={{ padding: "6px", color: "var(--text-dim)" }}
-                title="Edit Dossier Title"
+                title="Edit Mystery Title"
               >
                 <Edit2 size={16} />
               </button>
@@ -369,7 +369,7 @@ export const InvestigationPage = () => {
                 fontFamily: "var(--font-mono)",
               }}
             >
-              <FileText size={14} /> OFFICIAL INCIDENT REPORT & CRIME SCENE BRIEFING
+              <FileText size={14} /> THE STORY
             </div>
             <p
               style={{
@@ -389,12 +389,12 @@ export const InvestigationPage = () => {
           <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "18px" }}>
             <Users size={22} color="var(--accent-cyan)" />
             <h2 style={{ fontSize: "1.45rem", margin: 0 }}>
-              Suspect Dossiers & Interrogations (3)
+              The Suspects (3)
             </h2>
           </div>
           <p style={{ color: "var(--text-muted)", fontSize: "0.9rem", marginBottom: "16px" }}>
-            Review their stated motives, claimed alibis, and sworn statements.
-            {!isSolved && " Tap on a suspect's card to select them for your formal indictment."}
+            Read each person's reason, their story, and what they said.
+            {!isSolved && " Choose a suspect to make your guess."}
           </p>
 
           <div
@@ -426,11 +426,11 @@ export const InvestigationPage = () => {
           <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "18px" }}>
             <Search size={22} color="#34d399" />
             <h2 style={{ fontSize: "1.45rem", margin: 0 }}>
-              Forensic Evidence Locker (3)
+              The Clues (3)
             </h2>
           </div>
           <p style={{ color: "var(--text-muted)", fontSize: "0.9rem", marginBottom: "16px" }}>
-            Tangible traces recovered by crime scene examiners. Cross-reference them with suspect testimonies.
+            Compare the clues with each person's story.
           </p>
 
           <div

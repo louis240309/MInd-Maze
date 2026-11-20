@@ -93,7 +93,7 @@ export const SuspectCard = ({
                 borderColor: "#10b981",
               }}
             >
-              <CheckCircle size={12} /> True Culprit
+              <CheckCircle size={12} /> Guilty
             </span>
           ) : (
             <span
@@ -103,7 +103,7 @@ export const SuspectCard = ({
                 color: "#94a3b8",
               }}
             >
-              Exonerated
+              Not Guilty
             </span>
           )
         ) : (
@@ -135,7 +135,7 @@ export const SuspectCard = ({
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "#fda4af", fontSize: "0.785rem", fontWeight: 600, textTransform: "uppercase", marginBottom: "4px" }}>
-          <AlertTriangle size={13} /> Motive
+          <AlertTriangle size={13} /> Possible Reason
         </div>
         <p style={{ fontSize: "0.85rem", color: "var(--text-main)", lineHeight: "1.4" }}>
           {suspect.motive}
@@ -152,7 +152,7 @@ export const SuspectCard = ({
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "var(--accent-cyan)", fontSize: "0.785rem", fontWeight: 600, textTransform: "uppercase", marginBottom: "4px" }}>
-          <ShieldCheck size={13} /> Claimed Alibi
+          <ShieldCheck size={13} /> Their Story
         </div>
         <p style={{ fontSize: "0.85rem", color: "var(--text-main)", lineHeight: "1.4" }}>
           {suspect.alibi}
@@ -177,4 +177,3 @@ export const SuspectCard = ({
     </div>
   );
 };
-

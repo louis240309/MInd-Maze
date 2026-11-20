@@ -27,43 +27,43 @@ export const NewMysteryPage = () => {
   const THEMES = [
     {
       id: "Victorian Noir",
-      title: "Victorian London Noir",
-      desc: "Gaslit cobblestones, ancestral estates, and locked-room poisonings.",
+      title: "Old London",
+      desc: "Dark streets, old houses, and a locked-room mystery.",
       icon: Feather,
     },
     {
       id: "Art Heist",
-      title: "High Society Art Heist",
-      desc: "Stolen rare jewels, museum blackouts, and aristocrats with debts.",
+      title: "Museum Theft",
+      desc: "A missing work of art, a dark museum, and rich guests.",
       icon: Gem,
     },
     {
       id: "Cyberpunk Syndicate",
-      title: "Neon Cyberpunk Syndicate",
-      desc: "Neural feedback overclocks, corporate data purges, and encrypted terminals.",
+      title: "Future City",
+      desc: "Bright signs, clever machines, and missing computer files.",
       icon: Cpu,
     },
     {
       id: "Deep Space Outpost",
-      title: "Deep Space Station",
-      desc: "Sub-orbital sabotage, locked airlock chambers, and isolated scientists.",
+      title: "Space Station",
+      desc: "A small crew, a broken door, and a problem in space.",
       icon: Rocket,
     },
     {
       id: "Mountain Lodge",
-      title: "Blizzard Mountain Lodge",
-      desc: "Snowbound guests cut off from civilization with a poisoned cup of tea.",
+      title: "Snowy Mountain Inn",
+      desc: "Guests are snowed in, and someone has taken a cup of tea.",
       icon: Mountain,
     },
   ];
 
   const LOADING_MESSAGES = [
-    "Establishing encrypted connection to Gemini AI Detective Core...",
-    "Drafting crime scene narrative and atmospheric setting...",
-    "Fabricating 3 unique suspect profiles with conflicting alibis...",
-    "Engineering 3 forensic clues and documentary evidence tokens...",
-    "Encrypting secret case resolution and progressive hints...",
-    "Finalizing case dossier for detective examination...",
+    "Starting the mystery maker...",
+    "Writing the story...",
+    "Creating three suspects and their stories...",
+    "Adding three clues...",
+    "Preparing hints and the answer...",
+    "Getting your mystery ready...",
   ];
 
   const handleGenerate = async (e) => {
@@ -128,14 +128,14 @@ export const NewMysteryPage = () => {
               marginBottom: "16px",
             }}
           >
-            <Sparkles size={14} /> AI Case Commission
+            <Sparkles size={14} /> New Mystery
           </div>
           <h1 style={{ fontSize: "2.4rem", marginBottom: "10px" }}>
-            Commission A New Mystery Dossier
+            Create a Mystery
           </h1>
           <p style={{ color: "var(--text-muted)", fontSize: "1rem", maxWidth: "600px", margin: "0 auto" }}>
-            Configure your case difficulty and setting. The AI engine will architect
-            three suspects, three clues, and a single secret truth.
+            Choose how hard it is and where it happens. Your mystery will have
+            three suspects, three clues, and one answer.
           </p>
         </div>
 
@@ -188,7 +188,7 @@ export const NewMysteryPage = () => {
 
             <div>
               <h3 style={{ fontSize: "1.4rem", color: "#fff", marginBottom: "8px" }}>
-                Architecting Criminal Investigation
+                Making Your Mystery
               </h3>
               <p
                 style={{
@@ -232,7 +232,7 @@ export const NewMysteryPage = () => {
             {/* 1. Difficulty Level Selector */}
             <div className="card" style={{ padding: "28px" }}>
               <label className="form-label" style={{ fontSize: "1rem", color: "#fff", marginBottom: "16px", display: "block" }}>
-                1. Select Investigation Difficulty:
+                1. Choose How Hard:
               </label>
 
               <div
@@ -259,10 +259,10 @@ export const NewMysteryPage = () => {
                   }}
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "#34d399", fontWeight: 700, marginBottom: "6px" }}>
-                    <Sparkles size={18} /> Novice Sleuth (Easy)
+                    <Sparkles size={18} /> Easy
                   </div>
                   <p style={{ fontSize: "0.825rem", color: "var(--text-muted)", lineHeight: "1.4" }}>
-                    Clear evidence links, direct contradictions, and straightforward alibi checks.
+                    Clear clues and simple checks of each person's story.
                   </p>
                 </div>
 
@@ -283,10 +283,10 @@ export const NewMysteryPage = () => {
                   }}
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "var(--accent-cyan)", fontWeight: 700, marginBottom: "6px" }}>
-                    <Shield size={18} /> Inspector (Medium)
+                    <Shield size={18} /> Medium
                   </div>
                   <p style={{ fontSize: "0.825rem", color: "var(--text-muted)", lineHeight: "1.4" }}>
-                    Subtle physical clues, deceptive statements, and clever alibi fabrication.
+                    Harder clues and stories that do not quite fit.
                   </p>
                 </div>
 
@@ -307,10 +307,10 @@ export const NewMysteryPage = () => {
                   }}
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "#c084fc", fontWeight: 700, marginBottom: "6px" }}>
-                    <Flame size={18} /> Mastermind (Hard)
+                    <Flame size={18} /> Hard
                   </div>
                   <p style={{ fontSize: "0.825rem", color: "var(--text-muted)", lineHeight: "1.4" }}>
-                    Complex forensic synergies, technical timelines, and tightly woven red herrings.
+                    Clues that fit together in less obvious ways.
                   </p>
                 </div>
               </div>
@@ -319,7 +319,7 @@ export const NewMysteryPage = () => {
             {/* 2. Theme / Setting Selector */}
             <div className="card" style={{ padding: "28px" }}>
               <label className="form-label" style={{ fontSize: "1rem", color: "#fff", marginBottom: "16px", display: "block" }}>
-                2. Select Crime Scene Environment:
+                2. Choose a Place:
               </label>
 
               <div
@@ -373,13 +373,13 @@ export const NewMysteryPage = () => {
               {/* Custom Theme Input */}
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label className="form-label" htmlFor="custom-theme-input">
-                  Or Specify Your Own Custom Setting / Setting Prompt:
+                  Or choose your own place:
                 </label>
                 <input
                   id="custom-theme-input"
                   type="text"
                   className="form-input"
-                  placeholder="e.g. 1930s Orient Express, Ancient Alexandria Library, Submarine Deep Trench..."
+                  placeholder="For example: a train, an old library, or a submarine"
                   value={customTheme}
                   onChange={(e) => setCustomTheme(e.target.value)}
                 />
@@ -393,7 +393,7 @@ export const NewMysteryPage = () => {
                 className="btn btn-primary btn-lg"
                 style={{ gap: "10px", minWidth: "220px" }}
               >
-                Generate Case Dossier <ArrowRight size={18} />
+                Make My Mystery <ArrowRight size={18} />
               </button>
             </div>
           </form>

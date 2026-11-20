@@ -48,11 +48,11 @@ export const HintSystem = ({
           <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
             <Key size={18} color="var(--accent-purple)" />
             <h3 style={{ fontSize: "1.15rem", color: "#fff" }}>
-              Forensic Intelligence & Clue Synergies
+              Hints
             </h3>
           </div>
           <p style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>
-            Stuck in the investigation? Request cryptographic guidance from central forensics.
+            Need help? Ask for a hint.
           </p>
         </div>
 
@@ -75,7 +75,7 @@ export const HintSystem = ({
               {hintCount}
             </span>
             <span>/</span>
-            <span>{maxHints} Hints Dispatched</span>
+            <span>of {maxHints} hints</span>
           </div>
 
           {!isSolved && (
@@ -89,10 +89,10 @@ export const HintSystem = ({
               }}
             >
               {isLoadingHint ? (
-                "Intercepting transmission..."
+                "Getting a hint..."
               ) : hintsRemaining === 0 ? (
                 <>
-                  <Lock size={14} /> Max Hints Reached
+                  <Lock size={14} /> No Hints Left
                 </>
               ) : (
                 <>
@@ -123,12 +123,12 @@ export const HintSystem = ({
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             <AlertCircle size={20} color="var(--accent-purple)" />
             <span style={{ fontSize: "0.9rem", color: "#fff" }}>
-              Requesting a hint will count towards your detective efficiency rating. Proceed?
+              Asking for a hint uses one of your three hints. Continue?
             </span>
           </div>
           <div style={{ display: "flex", gap: "8px" }}>
             <button onClick={confirmRequest} className="btn btn-primary btn-sm">
-              Confirm & Unlock
+              Show Hint
             </button>
             <button onClick={() => setShowConfirm(false)} className="btn btn-ghost btn-sm">
               Cancel
@@ -150,7 +150,7 @@ export const HintSystem = ({
             fontSize: "0.875rem",
           }}
         >
-          No forensic hints unlocked yet. Solve the mystery unassisted for maximum investigator honors, or tap "Request Hint" above.
+          No hints yet. Ask for one if you get stuck.
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>

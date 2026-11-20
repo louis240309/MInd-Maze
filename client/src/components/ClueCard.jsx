@@ -8,28 +8,28 @@ export const ClueCard = ({ clue, index }) => {
       case "forensic":
         return {
           icon: Fingerprint,
-          label: "Forensic Analysis",
+          label: "Test Results",
           color: "#c084fc",
           bg: "rgba(168, 85, 247, 0.12)",
         };
       case "document":
         return {
           icon: FileText,
-          label: "Documentary Proof",
+          label: "Written Record",
           color: "#38bdf8",
           bg: "rgba(56, 189, 248, 0.12)",
         };
       case "testimony":
         return {
           icon: MessageSquareQuote,
-          label: "Witness Testimony",
+          label: "Witness Story",
           color: "#fbbf24",
           bg: "rgba(245, 158, 11, 0.12)",
         };
       default:
         return {
           icon: Box,
-          label: "Physical Evidence",
+          label: "Object Clue",
           color: "#34d399",
           bg: "rgba(16, 185, 129, 0.12)",
         };
@@ -66,7 +66,7 @@ export const ClueCard = ({ clue, index }) => {
             fontFamily: "var(--font-mono)",
           }}
         >
-          EVIDENCE ITEM #{index + 1}
+          CLUE #{index + 1}
         </span>
 
         <span
@@ -113,7 +113,7 @@ export const ClueCard = ({ clue, index }) => {
             letterSpacing: "0.05em",
           }}
         >
-          Investigative Value
+          Why It Matters
         </span>
         <p style={{ fontSize: "0.825rem", color: "var(--text-muted)", lineHeight: "1.4" }}>
           {clue.relevance}

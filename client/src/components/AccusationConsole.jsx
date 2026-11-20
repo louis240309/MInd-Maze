@@ -27,12 +27,12 @@ export const AccusationConsole = ({
     setErrorMsg("");
 
     if (!selectedSuspectId) {
-      setErrorMsg("Please identify the suspect you are formally accusing.");
+      setErrorMsg("Choose a suspect first.");
       return;
     }
 
     if (!deductionText.trim() || deductionText.trim().length < 5) {
-      setErrorMsg("Please formulate your deductive reasoning (at least 5 characters).");
+      setErrorMsg("Write a little about why you chose them.");
       return;
     }
 
@@ -85,10 +85,10 @@ export const AccusationConsole = ({
             </div>
             <div>
               <h3 style={{ color: "#34d399", fontSize: "1.2rem", marginBottom: "2px" }}>
-                Case Closed & Verdict Confirmed
+                Case Solved
               </h3>
               <p style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>
-                You have systematically exposed the culprit and established incontrovertible proof.
+                You found the guilty person and showed why.
               </p>
             </div>
           </div>
@@ -114,7 +114,7 @@ export const AccusationConsole = ({
                 fontFamily: "var(--font-mono)",
               }}
             >
-              CONFIDENTIAL CASE RESOLUTION
+              THE ANSWER
             </div>
             <p style={{ fontSize: "0.95rem", color: "var(--text-main)", lineHeight: "1.6" }}>
               {solution}
@@ -128,18 +128,18 @@ export const AccusationConsole = ({
             <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
               <Gavel size={20} color="var(--accent-purple)" />
               <h3 style={{ fontSize: "1.25rem", color: "#fff" }}>
-                Formal Indictment & Deduction Console
+                Make Your Guess
               </h3>
             </div>
             <p style={{ fontSize: "0.875rem", color: "var(--text-muted)" }}>
-              Designate the perpetrator and articulate your theory connecting the physical evidence to their broken alibi.
+              Choose who you think did it. Tell us which clues helped you decide.
             </p>
           </div>
 
           {/* Suspect Selector Pill List */}
           <div>
             <label className="form-label" style={{ marginBottom: "10px", display: "block" }}>
-              1. Select Culprit to Accuse:
+              1. Choose a Suspect:
             </label>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "10px" }}>
               {suspects.map((s) => {
@@ -180,13 +180,13 @@ export const AccusationConsole = ({
           {/* Reasoning Input */}
           <div className="form-group" style={{ marginBottom: 0 }}>
             <label className="form-label" htmlFor="deduction-input">
-              2. Detail Your Deductive Argument:
+              2. Why do you think they did it?
             </label>
             <textarea
               id="deduction-input"
               className="form-textarea"
               rows={4}
-              placeholder="e.g. Suspect X fabricated their alibi using an automated loop; their boots left mud matching the fire escape, and only their department uses the chemical polish found on the alarm bypass panel..."
+              placeholder="For example: I chose this person because the note puts them there."
               value={deductionText}
               onChange={(e) => setDeductionText(e.target.value)}
               style={{ fontSize: "0.9rem", lineHeight: "1.5" }}
@@ -227,7 +227,7 @@ export const AccusationConsole = ({
               <ShieldAlert size={20} color="#fbbf24" style={{ flexShrink: 0, marginTop: "2px" }} />
               <div>
                 <h5 style={{ color: "#fbbf24", marginBottom: "4px", fontSize: "0.95rem" }}>
-                  Investigation Rebuttal: Insufficient Evidence
+                  Try Again
                 </h5>
                 <p style={{ color: "var(--text-main)", fontSize: "0.875rem", lineHeight: "1.5" }}>
                   {evaluationResult.feedback}
@@ -245,10 +245,10 @@ export const AccusationConsole = ({
               style={{ gap: "10px" }}
             >
               {isSubmitting ? (
-                "Evaluating Indictment with Forensics..."
+                "Checking your answer..."
               ) : (
                 <>
-                  Deliver Formal Indictment <Gavel size={18} />
+                  Check My Answer <Gavel size={18} />
                 </>
               )}
             </button>
