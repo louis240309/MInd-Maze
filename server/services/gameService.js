@@ -275,8 +275,8 @@ export class GameService {
       };
     }
 
-    // Evaluate answer against game solution
-    const evaluation = await geminiService.evaluateDeduction({
+    // Check the selected suspect against the game solution.
+    const evaluation = await geminiService.evaluateGuess({
       game,
       answer,
       suspect_id,
@@ -378,4 +378,3 @@ export class GameService {
 }
 
 export const gameService = new GameService();
-

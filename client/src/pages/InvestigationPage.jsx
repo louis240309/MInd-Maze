@@ -84,14 +84,13 @@ export const InvestigationPage = () => {
   };
 
   // Submit Accusation Handler
-  const handleSubmitDeduction = async ({ suspect_id, suspect_name, answer }) => {
+  const handleSubmitGuess = async ({ suspect_id, suspect_name }) => {
     if (!game || isSubmittingSolve) return;
     try {
       setIsSubmittingSolve(true);
       setEvaluationResult(null);
 
       const res = await api.post(`/games/${id}/solve`, {
-        answer,
         suspect_id,
         suspect_name,
       });
@@ -107,7 +106,7 @@ export const InvestigationPage = () => {
         }));
       }
     } catch (err) {
-      alert(err.response?.data?.message || "Could not check your answer.");
+      alert(err.response?.data?.message || "Could not check your guess.");
     } finally {
       setIsSubmittingSolve(false);
     }
@@ -464,7 +463,7 @@ export const InvestigationPage = () => {
             suspects={game.suspects || []}
             selectedSuspectId={selectedSuspectId}
             onSelectSuspect={(suspectId) => setSelectedSuspectId(suspectId)}
-            onSubmitDeduction={handleSubmitDeduction}
+            onSubmitGuess={handleSubmitGuess}
             isSubmitting={isSubmittingSolve}
             evaluationResult={evaluationResult}
             solution={game.solution}

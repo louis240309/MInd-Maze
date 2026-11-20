@@ -48,12 +48,14 @@ export const updateGameSchema = z.object({
 });
 
 export const solveGameSchema = z.object({
-  answer: z.string().trim().min(3, "Please explain your deduction (at least 3 characters)").max(1500, "Answer is too long"),
+  answer: z.string().trim().max(1500, "Answer is too long").optional().default(""),
   suspect_id: z.string().trim().optional(),
   suspect_name: z.string().trim().optional(),
+}).refine(data => data.answer || data.suspect_id || data.suspect_name, {
+  message: "Choose a suspect.",
+  path: ["suspect_id"],
 });
 
 export const updateProfileSchema = z.object({
   name: z.string().trim().min(2, "Name must be at least 2 characters").max(60, "Name cannot exceed 60 characters"),
 });
-

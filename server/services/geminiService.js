@@ -208,47 +208,19 @@ export class GeminiService {
     throw error;
   }
 
-  async evaluateDeduction({ game, answer, suspect_id, suspect_name }) {
+  async evaluateGuess({ game, answer = "", suspect_id, suspect_name }) {
     const marker = game.solution.match(/^Guilty suspect:\s*(suspect_[123])\s*[-—–:]\s*([^.!\n]+)/i);
     const culprit = game.suspects.find(({ id, name }) => id === marker?.[1] && name.toLocaleLowerCase() === marker?.[2].trim().toLocaleLowerCase());
     const accused = game.suspects.find(({ id, name }) => id === suspect_id || (suspect_name && name.toLocaleLowerCase() === suspect_name.toLocaleLowerCase()));
     const namesTheCulprit = !suspect_id && !suspect_name && answer.toLocaleLowerCase().includes(culprit?.name.toLocaleLowerCase() || "\u0000");
     const accusedCorrectly = Boolean(culprit && (accused?.id === culprit.id || namesTheCulprit));
-    if (accusedCorrectly && answer.trim().length >= 12 && this.ai) {
-      const evaluationPrompt = `Assess this player's mystery deduction. Do not disclose any solution details in feedback. Write feedback in very simple English for a reader around age 10. Use short, direct sentences and common words. Avoid jargon and formal phrases.\n\nSecret solution: ${game.solution}\nSuspects: ${game.suspects.map(({ id, name }) => `${id}: ${name}`).join("; ")}\nClues: ${game.clues.map(({ name, description }) => `${name}: ${description}`).join("\n")}\nPlayer explanation: ${answer}\n\nReturn JSON only: {"reasoningIsSound": boolean, "feedback": string}. reasoningIsSound is true only if the player explains a plausible connection between at least one clue and the suspect's guilt. If false, encourage a closer look at the clues without revealing the culprit or secret solution.`;
-      for (const model of models) {
-        try {
-          const response = await this.ai.models.generateContent({
-            model,
-            contents: evaluationPrompt,
-            config: { responseMimeType: "application/json", temperature: 0.2, maxOutputTokens: 500 },
-          });
-          const result = z.object({ reasoningIsSound: z.boolean(), feedback: z.string().min(5).max(500) })
-            .parse(JSON.parse(cleanJson(response.text?.trim() || "")));
-          if (result.reasoningIsSound) {
-            return { isCorrect: true, guiltyName: culprit.name, feedback: `Good thinking, Detective. ${result.feedback} Case closed.` };
-          }
-          return { isCorrect: false, feedback: result.feedback };
-        } catch {
-          // Continue to another available model, then use the local consistency check below.
-        }
-      }
+    if (accusedCorrectly) {
+      return { isCorrect: true, guiltyName: culprit.name, feedback: `Correct! ${culprit.name} did it.` };
     }
 
-    const answerLower = answer.toLocaleLowerCase();
-    const mentionsEvidence = game.clues.some(({ name, description }) => {
-      const clueName = name.toLocaleLowerCase();
-      return answerLower.includes(clueName) || clueName.split(/\W+/).filter((word) => word.length > 4).some((word) => answerLower.includes(word));
-    });
-    const correct = accusedCorrectly && answer.trim().length >= 24 && mentionsEvidence;
-    if (correct) return { isCorrect: true, guiltyName: culprit.name, feedback: `Good thinking, Detective. Your clues point to ${culprit.name}. Case closed.` };
     return {
       isCorrect: false,
-      feedback: answer.trim().length < 8
-        ? "Explain a little more. Show how a clue points to your suspect."
-        : accusedCorrectly
-          ? "Your suspect may fit, but show how one clue points to them."
-          : "That suspect may not fit. Check the times and each person's story again.",
+      feedback: "That is not the right person. Check the clues and try again.",
     };
   }
 }

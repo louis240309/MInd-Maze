@@ -11,13 +11,12 @@ export const AccusationConsole = ({
   suspects = [],
   selectedSuspectId,
   onSelectSuspect,
-  onSubmitDeduction,
+  onSubmitGuess,
   isSubmitting,
   evaluationResult,
   solution,
   isSolved,
 }) => {
-  const [deductionText, setDeductionText] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
 
   const selectedSuspect = suspects.find((s) => s.id === selectedSuspectId);
@@ -31,15 +30,9 @@ export const AccusationConsole = ({
       return;
     }
 
-    if (!deductionText.trim() || deductionText.trim().length < 5) {
-      setErrorMsg("Write a little about why you chose them.");
-      return;
-    }
-
-    onSubmitDeduction({
+    onSubmitGuess({
       suspect_id: selectedSuspectId,
       suspect_name: selectedSuspect ? selectedSuspect.name : "",
-      answer: deductionText.trim(),
     });
   };
 
@@ -88,7 +81,7 @@ export const AccusationConsole = ({
                 Case Solved
               </h3>
               <p style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>
-                You found the guilty person and showed why.
+                You found the guilty person.
               </p>
             </div>
           </div>
@@ -132,7 +125,7 @@ export const AccusationConsole = ({
               </h3>
             </div>
             <p style={{ fontSize: "0.875rem", color: "var(--text-muted)" }}>
-              Choose who you think did it. Tell us which clues helped you decide.
+              Choose who you think did it.
             </p>
           </div>
 
@@ -175,22 +168,6 @@ export const AccusationConsole = ({
                 );
               })}
             </div>
-          </div>
-
-          {/* Reasoning Input */}
-          <div className="form-group" style={{ marginBottom: 0 }}>
-            <label className="form-label" htmlFor="deduction-input">
-              2. Why do you think they did it?
-            </label>
-            <textarea
-              id="deduction-input"
-              className="form-textarea"
-              rows={4}
-              placeholder="For example: I chose this person because the note puts them there."
-              value={deductionText}
-              onChange={(e) => setDeductionText(e.target.value)}
-              style={{ fontSize: "0.9rem", lineHeight: "1.5" }}
-            />
           </div>
 
           {/* Validation Error */}
@@ -245,10 +222,10 @@ export const AccusationConsole = ({
               style={{ gap: "10px" }}
             >
               {isSubmitting ? (
-                "Checking your answer..."
+                "Checking your guess..."
               ) : (
                 <>
-                  Check My Answer <Gavel size={18} />
+                  Check My Guess <Gavel size={18} />
                 </>
               )}
             </button>
