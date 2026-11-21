@@ -69,10 +69,11 @@ router.post(
   async (req, res, next) => {
     try {
       res.set("Cache-Control", "no-store");
-      const { difficulty, theme } = req.validatedBody;
+      const { difficulty, theme, generation_id: generationId } = req.validatedBody;
       const newGame = await gameService.createMystery(req.user.id, {
         difficulty,
         theme,
+        generationId,
       });
 
       res.status(201).json({

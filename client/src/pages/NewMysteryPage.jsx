@@ -14,6 +14,26 @@ import {
   Mountain,
 } from "lucide-react";
 
+const pendingGenerationStorageKey = "mindmaze.pendingGeneration";
+
+const getPendingGenerationId = (theme, difficulty) => {
+  const saved = sessionStorage.getItem(pendingGenerationStorageKey);
+  if (saved) {
+    try {
+      const pending = JSON.parse(saved);
+      if (pending.theme === theme && pending.difficulty === difficulty && typeof pending.id === "string") {
+        return pending.id;
+      }
+    } catch (error) {
+      console.warn("[NewMystery] Could not read the pending generation key; starting a new request.", error);
+    }
+  }
+
+  const id = crypto.randomUUID();
+  sessionStorage.setItem(pendingGenerationStorageKey, JSON.stringify({ id, theme, difficulty }));
+  return id;
+};
+
 export const NewMysteryPage = () => {
   const navigate = useNavigate();
 
@@ -81,14 +101,17 @@ export const NewMysteryPage = () => {
     const effectiveTheme = customTheme.trim() ? customTheme.trim() : selectedTheme;
 
     try {
+      const generationId = getPendingGenerationId(effectiveTheme, difficulty);
       const response = await api.post("/games", {
         difficulty,
         theme: effectiveTheme,
+        generation_id: generationId,
       });
 
       clearInterval(interval);
 
       if (response.data.success && response.data.game?.id && response.data.game?.generation_id) {
+        sessionStorage.removeItem(pendingGenerationStorageKey);
         navigate(`/games/${response.data.game.id}`);
       } else {
         throw new Error("Invalid response received from case generator.");

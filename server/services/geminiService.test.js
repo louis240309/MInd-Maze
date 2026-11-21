@@ -72,6 +72,9 @@ const generationResponse = (text, finishReason = "STOP") => ({
 const generationService = (generateContent) => Object.assign(Object.create(GeminiService.prototype), {
   apiKey: "test-key",
   recentCases: [],
+  sleep: async () => {},
+  random: () => 0,
+  retryContext: null,
   ai: { models: { generateContent } },
 });
 
@@ -152,6 +155,34 @@ test("a response missing required fields is retried without inventing defaults",
   assert.match(requests[1].contents, /story/);
 });
 
+test("an invalid culprit marker is rejected and corrected on retry", async () => {
+  const invalidCase = sampleCase("Mansion", 1);
+  invalidCase.solution = "Guilty suspect: suspect_3 — Ari 1. The evidence explains the case.";
+  const { service, requests } = sequenceService([
+    generationResponse(JSON.stringify(invalidCase)),
+    generationResponse(JSON.stringify(sampleCase("Mansion", 2))),
+  ]);
+  const generated = await service.generateMystery({ theme: "Mansion", difficulty: "medium", generationId: "invalid-culprit-test" });
+
+  assert.equal(generated.title, "Mansion Mystery 2");
+  assert.equal(requests.length, 2);
+  assert.match(requests[1].contents, /solution/);
+});
+
+test("inconsistent solution clues or culprit hints are rejected", async () => {
+  const inconsistentCase = sampleCase("Mansion", 1);
+  inconsistentCase.solution = "Guilty suspect: suspect_1 — Ari 1. Bea 1 and Cal 1 are innocent.";
+  inconsistentCase.hints[0] = "Ari 1 had the strongest motive.";
+  const { service, requests } = sequenceService([
+    generationResponse(JSON.stringify(inconsistentCase)),
+    generationResponse(JSON.stringify(sampleCase("Mansion", 2))),
+  ]);
+  await service.generateMystery({ theme: "Mansion", difficulty: "medium", generationId: "inconsistent-case-test" });
+
+  assert.equal(requests.length, 2);
+  assert.match(requests[1].contents, /solution\.clues|hints/);
+});
+
 test("an empty Gemini response is retried and never treated as a case", async () => {
   const { service, requests } = sequenceService([
     generationResponse(undefined),
@@ -195,9 +226,173 @@ test("generation fails after the bounded retry limit for malformed responses", a
 
   await assert.rejects(
     service.generateMystery({ theme: "Mansion", difficulty: "medium", generationId: "retry-limit-test" }),
-    (error) => error.statusCode === 502 && /invalid JSON/i.test(error.message),
+    (error) => error.statusCode === 502 && /invalid case data/i.test(error.message),
   );
+  assert.equal(requests.length, 3);
+});
+
+test("a temporary 503 is retried and generation succeeds on the next request", async () => {
+  const unavailable = Object.assign(new Error("provider unavailable"), { status: 503, code: "UNAVAILABLE" });
+  const { service, requests } = sequenceService([
+    () => { throw unavailable; },
+    generationResponse(JSON.stringify(sampleCase("Mansion", 1))),
+  ]);
+  const generated = await service.generateMystery({ theme: "Mansion", difficulty: "medium", generationId: "503-recovery-test" });
+
+  assert.equal(generated.title, "Mansion Mystery 1");
   assert.equal(requests.length, 2);
+});
+
+test("repeated 503 errors stop after three attempts and return a safe unavailable message", async () => {
+  const { service, requests } = sequenceService([
+    () => { throw Object.assign(new Error("provider unavailable"), { status: 503, code: "UNAVAILABLE" }); },
+  ]);
+
+  await assert.rejects(
+    service.generateMystery({ theme: "Mansion", difficulty: "medium", generationId: "503-limit-test" }),
+    (error) => error.statusCode === 503 && /temporarily unavailable/i.test(error.message) && error.retryable,
+  );
+  assert.equal(requests.length, 3);
+});
+
+test("502 and 504 provider errors recover with bounded retries", async (context) => {
+  for (const status of [502, 504]) {
+    await context.test(`HTTP ${status}`, async () => {
+      const { service, requests } = sequenceService([
+        () => { throw Object.assign(new Error("temporary gateway failure"), { status }); },
+        generationResponse(JSON.stringify(sampleCase("Mansion", status))),
+      ]);
+      const generated = await service.generateMystery({ theme: "Mansion", difficulty: "medium", generationId: `gateway-${status}` });
+
+      assert.equal(generated.title, `Mansion Mystery ${status}`);
+      assert.equal(requests.length, 2);
+    });
+  }
+});
+
+test("network timeouts retry, while quota and permanent client errors do not", async (context) => {
+  const cases = [
+    {
+      name: "network timeout",
+      error: Object.assign(new Error("request timed out"), { code: "ETIMEDOUT", name: "TimeoutError" }),
+      expectedCalls: 3,
+      expectedStatus: 503,
+      message: /took too long/i,
+    },
+    {
+      name: "rate limit",
+      error: Object.assign(new Error("quota exhausted"), { status: 429, code: "RESOURCE_EXHAUSTED" }),
+      expectedCalls: 1,
+      expectedStatus: 429,
+      message: /request limit reached/i,
+    },
+    {
+      name: "invalid credentials",
+      error: Object.assign(new Error("invalid key"), { status: 401 }),
+      expectedCalls: 1,
+      expectedStatus: 503,
+      message: /configuration needs attention/i,
+    },
+    {
+      name: "permanent bad request",
+      error: Object.assign(new Error("invalid request"), { status: 400 }),
+      expectedCalls: 1,
+      expectedStatus: 502,
+      message: /could not generate a valid case/i,
+    },
+  ];
+
+  for (const scenario of cases) {
+    await context.test(scenario.name, async () => {
+      const { service, requests } = sequenceService([
+        () => { throw scenario.error; },
+      ]);
+
+      await assert.rejects(
+        service.generateMystery({ theme: "Mansion", difficulty: "medium", generationId: scenario.name }),
+        (error) => error.statusCode === scenario.expectedStatus && scenario.message.test(error.message),
+      );
+      assert.equal(requests.length, scenario.expectedCalls);
+    });
+  }
+});
+
+test("an unsupported configured model gets one fallback without retrying other permanent errors", async () => {
+  const models = [];
+  const service = generationService(async ({ model }) => {
+    models.push(model);
+    if (models.length === 1) {
+      throw Object.assign(new Error(`Model ${model} not found`), { status: 404, code: "NOT_FOUND" });
+    }
+    return generationResponse(JSON.stringify(sampleCase("Mansion", 1)));
+  });
+
+  const generated = await service.generateMystery({ theme: "Mansion", difficulty: "medium", generationId: "model-fallback-test" });
+
+  assert.equal(generated.title, "Mansion Mystery 1");
+  assert.equal(models.length, 2);
+  assert.notEqual(models[0], models[1]);
+});
+
+test("provider Retry-After seconds are honored without exceeding the request budget", async () => {
+  const delays = [];
+  let calls = 0;
+  const service = generationService(async () => {
+    calls += 1;
+    if (calls === 1) {
+      throw Object.assign(new Error("provider unavailable"), {
+        status: 503,
+        headers: new Headers({ "retry-after": "2" }),
+      });
+    }
+    return generationResponse(JSON.stringify(sampleCase("Mansion", 1)));
+  });
+  service.sleep = async (milliseconds) => delays.push(milliseconds);
+
+  const generated = await service.generateMystery({ theme: "Mansion", difficulty: "medium", generationId: "retry-after-test" });
+
+  assert.equal(generated.title, "Mansion Mystery 1");
+  assert.deepEqual(delays, [2000]);
+  assert.equal(calls, 2);
+});
+
+test("Retry-After metadata captured from the SDK fetch is honored", async () => {
+  let activeContext;
+  const delays = [];
+  let calls = 0;
+  const service = generationService(async () => {
+    calls += 1;
+    if (calls === 1) {
+      activeContext.retryAfterMs = 750;
+      throw Object.assign(new Error("provider unavailable"), { status: 503 });
+    }
+    return generationResponse(JSON.stringify(sampleCase("Mansion", 1)));
+  });
+  service.retryContext = {
+    run(context, callback) {
+      activeContext = context;
+      return Promise.resolve(callback()).finally(() => { activeContext = null; });
+    },
+  };
+  service.sleep = async (milliseconds) => delays.push(milliseconds);
+
+  await service.generateMystery({ theme: "Mansion", difficulty: "medium", generationId: "captured-retry-after-test" });
+
+  assert.deepEqual(delays, [750]);
+  assert.equal(calls, 2);
+});
+
+test("duplicate candidate responses are rejected and never accepted after retries", async () => {
+  const priorCase = sampleCase("Mansion", 1);
+  const { service, requests } = sequenceService([
+    generationResponse(JSON.stringify(sampleCase("Mansion", 1))),
+  ]);
+
+  await assert.rejects(
+    service.generateMystery({ theme: "Mansion", difficulty: "medium", recentCases: [priorCase], generationId: "duplicate-test" }),
+    (error) => error.statusCode === 502 && /too similar/i.test(error.message),
+  );
+  assert.equal(requests.length, 3);
 });
 
 test("unknown word explanations send only the word and selected context in one call", async () => {

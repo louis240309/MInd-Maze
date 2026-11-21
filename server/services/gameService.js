@@ -9,6 +9,7 @@ export class GameService {
   constructor({ database = supabase, caseGenerator = geminiService } = {}) {
     this.database = database;
     this.caseGenerator = caseGenerator;
+    this.pendingGenerations = new Map();
   }
 
   static calculatePointsEarned(difficulty, hintCount) {
@@ -177,8 +178,44 @@ export class GameService {
   /**
    * Generate and persist a new mystery investigation
    */
-  async createMystery(userId, { difficulty = "medium", theme = "Noir Detective" }) {
-    const generationId = randomUUID();
+  async createMystery(userId, options = {}) {
+    const generationId = options.generationId || randomUUID();
+    const requestKey = `${userId}:${generationId}`;
+    const existingRequest = this.pendingGenerations.get(requestKey);
+    if (existingRequest) return existingRequest;
+
+    const pendingRequest = this._createMystery(userId, {
+      ...options,
+      generationId,
+    });
+    this.pendingGenerations.set(requestKey, pendingRequest);
+    try {
+      return await pendingRequest;
+    } finally {
+      if (this.pendingGenerations.get(requestKey) === pendingRequest) {
+        this.pendingGenerations.delete(requestKey);
+      }
+    }
+  }
+
+  async _createMystery(userId, { difficulty = "medium", theme = "Noir Detective", generationId }) {
+    const { data: existingGame, error: existingGameError } = await this.database
+      .from("games")
+      .select("*")
+      .eq("id", generationId)
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (existingGameError) {
+      console.error("[GameService.createMystery] Idempotency lookup failed:", existingGameError.code || "database error");
+      const error = new Error("Could not check the case request. Please retry in a moment.");
+      error.statusCode = 503;
+      error.retryable = true;
+      error.cause = existingGameError;
+      throw error;
+    }
+    if (existingGame) return GameService.sanitizeGame(existingGame);
+
     // Give Gemini the player's recent case premises so it can avoid repetition.
     const { data: recentCases, error: historyError } = await this.database
       .from("games")
@@ -240,6 +277,18 @@ export class GameService {
       .single();
 
     if (error) {
+      if (error.code === "23505") {
+        const { data: savedGame, error: lookupError } = await this.database
+          .from("games")
+          .select("*")
+          .eq("id", generationId)
+          .eq("user_id", userId)
+          .maybeSingle();
+        if (!lookupError && savedGame) return GameService.sanitizeGame(savedGame);
+        if (lookupError) {
+          console.error("[GameService.createMystery] Duplicate-request lookup failed:", lookupError.code || "database error");
+        }
+      }
       console.error("[GameService.createMystery] Insert failed:", error.code || error.status || "database error");
       const saveError = new Error("Gemini created the case, but Supabase could not save it. No case was opened; please retry.");
       saveError.statusCode = 503;

@@ -1,6 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
 import { randomUUID } from "node:crypto";
+import { AsyncLocalStorage } from "node:async_hooks";
 import {
   CrimeSceneSchema,
   validateSceneClueLinks,
@@ -128,14 +129,69 @@ const extractJsonText = (text) => {
   return fenced ? fenced[1].trim() : trimmed;
 };
 const isIncompleteJsonError = (error) => /unexpected end|unterminated string/i.test(error.message || "");
-const isTransientProviderFailure = (error) =>
-  [408, 429, 500, 502, 503, 504].includes(Number(error?.status || error?.statusCode)) ||
-  ["UNAVAILABLE", "RESOURCE_EXHAUSTED"].includes(error?.code);
+const networkErrorCodes = new Set([
+  "ECONNABORTED",
+  "ECONNREFUSED",
+  "ECONNRESET",
+  "EAI_AGAIN",
+  "ENETDOWN",
+  "ENETUNREACH",
+  "ENOTFOUND",
+  "ETIMEDOUT",
+  "UND_ERR_CONNECT_TIMEOUT",
+  "UND_ERR_HEADERS_TIMEOUT",
+]);
+const isNetworkFailure = (error) =>
+  networkErrorCodes.has(error?.code) ||
+  error?.name === "TimeoutError" ||
+  error?.name === "AbortError" ||
+  (error?.name === "TypeError" && /fetch failed|network/i.test(error?.message || ""));
+const isRetryableProviderFailure = (error) =>
+  [408, 500, 502, 503, 504].includes(Number(error?.status || error?.statusCode)) ||
+  ["UNAVAILABLE", "INTERNAL"].includes(error?.code) ||
+  isNetworkFailure(error);
 const isUnavailableModelError = (error) =>
   Number(error?.status || error?.statusCode) === 404 ||
   error?.code === "NOT_FOUND" ||
   /model.{0,50}(not found|unsupported|unavailable)/i.test(error?.message || "");
 const delay = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+const readHeader = (headers, name) => {
+  if (!headers) return undefined;
+  if (typeof headers.get === "function") return headers.get(name) || headers.get(name.toLowerCase()) || undefined;
+  if (typeof headers === "object") {
+    const key = Object.keys(headers).find((candidate) => candidate.toLowerCase() === name.toLowerCase());
+    return key ? headers[key] : undefined;
+  }
+  return undefined;
+};
+const retryAfterMilliseconds = (error, capturedRetryAfterMs = null) => {
+  const explicitMs = Number(error?.retryAfterMs);
+  if (Number.isFinite(explicitMs) && explicitMs >= 0) return explicitMs;
+  const retryAfterMsHeader = readHeader(error?.headers, "retry-after-ms") ??
+    readHeader(error?.response?.headers, "retry-after-ms") ??
+    readHeader(error?.cause?.headers, "retry-after-ms");
+  const headerMs = Number(retryAfterMsHeader);
+  if (retryAfterMsHeader !== undefined && Number.isFinite(headerMs) && headerMs >= 0) return headerMs;
+  if (capturedRetryAfterMs !== null && Number.isFinite(capturedRetryAfterMs) && capturedRetryAfterMs >= 0) {
+    return capturedRetryAfterMs;
+  }
+  const explicit = error?.retryAfter;
+  const header = readHeader(error?.headers, "retry-after") ??
+    readHeader(error?.response?.headers, "retry-after") ??
+    readHeader(error?.cause?.headers, "retry-after");
+  const value = explicit ?? header;
+  if (value === undefined || value === null || value === "") return null;
+  const seconds = Number(value);
+  if (Number.isFinite(seconds) && seconds >= 0) return seconds * 1000;
+  const date = Date.parse(value);
+  return Number.isNaN(date) ? null : Math.max(0, date - Date.now());
+};
+const retryDelayMilliseconds = (error, attempt, random, capturedRetryAfterMs = null) => {
+  const retryAfter = retryAfterMilliseconds(error, capturedRetryAfterMs);
+  if (retryAfter !== null) return retryAfter <= 15000 ? retryAfter : null;
+  const backoff = Math.min(1000 * (2 ** (attempt - 1)), 4000);
+  return Math.round(backoff + random() * backoff * 0.25);
+};
 const normalize = (text = "") => text.toLocaleLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
 const significantWords = (text = "") => new Set(normalize(text).split(" ").filter((word) => word.length > 4));
 const wordSimilarity = (left, right) => {
@@ -213,14 +269,29 @@ export function validateGeneratedMystery(value, difficulty) {
 }
 
 export class GeminiService {
-  constructor() {
+  constructor({ sleep = delay, random = Math.random } = {}) {
     this.apiKey = process.env.GEMINI_API_KEY || "";
+    this.retryContext = new AsyncLocalStorage();
+    const retryContext = this.retryContext;
     this.ai = this.apiKey ? new GoogleGenAI({
       apiKey: this.apiKey,
-      // Bound each model attempt so fallbacks complete before the client request timeout.
-      httpOptions: { timeout: 25000, retryOptions: { attempts: 1 } },
+      httpOptions: {
+        timeout: 25000,
+        retryOptions: { attempts: 1 },
+        fetch: async (...args) => {
+          const response = await fetch(...args);
+          if (!response.ok) {
+            const context = retryContext.getStore();
+            const retryAfterMs = retryAfterMilliseconds({ headers: response.headers });
+            if (context && retryAfterMs !== null) context.retryAfterMs = retryAfterMs;
+          }
+          return response;
+        },
+      },
     }) : null;
     this.recentCases = [];
+    this.sleep = sleep;
+    this.random = random;
   }
 
   isConfigured() {
@@ -252,7 +323,7 @@ Create one crime scene that matches the story. It must have three distinct areas
 The solution is secret and must start exactly: Guilty suspect: suspect_N — FULL NAME. Use the exact names of all three clues. Explain how the clues and timeline identify that suspect and clear the other two. Do not add facts.
 Keep all player-facing writing at about a 10th-grade reading level: short sentences, common words, and no jargon. Keep each field concise. Ensure every required field is present and non-empty.`;
 
-    const maxAttempts = 2;
+    const maxAttempts = 3;
     const maxOutputTokens = 5000;
     let modelIndex = 0;
     let usedModelFallback = false;
@@ -261,9 +332,11 @@ Keep all player-facing writing at about a 10th-grade reading level: short senten
 
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
       const model = models[modelIndex];
+      const requestStartedAt = Date.now();
+      const retryMetadata = { retryAfterMs: null };
       let response;
       try {
-        response = await this.ai.models.generateContent({
+        const request = () => this.ai.models.generateContent({
           model,
           contents: `${generationPrompt}${retryInstruction}\nAttempt ${attempt}; variation token: ${randomUUID()}`,
           config: {
@@ -274,9 +347,16 @@ Keep all player-facing writing at about a 10th-grade reading level: short senten
             maxOutputTokens,
           },
         });
+        response = this.retryContext
+          ? await this.retryContext.run(retryMetadata, request)
+          : await request();
       } catch (cause) {
         const providerStatus = Number(cause?.status || cause?.statusCode || 0);
         const canFallback = isUnavailableModelError(cause) && !usedModelFallback && models.length > 1;
+        const retryable = canFallback || isRetryableProviderFailure(cause);
+        const retryDelayMs = retryable && attempt < maxAttempts
+          ? retryDelayMilliseconds(cause, attempt, this.random, retryMetadata.retryAfterMs)
+          : null;
         lastFailure = { kind: "provider", cause };
         console.warn("[GeminiService] Case generation request failed.", {
           model,
@@ -286,17 +366,23 @@ Keep all player-facing writing at about a 10th-grade reading level: short senten
           tokenUsage: null,
           jsonParsingSucceeded: null,
           validationPaths: [],
+          durationMs: Date.now() - requestStartedAt,
           status: providerStatus || null,
           code: cause?.code || null,
           errorType: cause?.name || "Error",
+          retryable,
+          willRetry: retryDelayMs !== null,
+          retryAfterMs: retryMetadata.retryAfterMs,
+          retryDelayMs,
+          outcome: retryDelayMs !== null ? "retrying" : "failed",
         });
-        if (attempt >= maxAttempts || (!canFallback && !isTransientProviderFailure(cause))) break;
+        if (retryDelayMs === null) break;
         if (canFallback) {
           modelIndex += 1;
           usedModelFallback = true;
           retryInstruction = "\nThe previous model could not serve this request. Return the complete case using the response schema.";
         }
-        await delay(250 * attempt);
+        await this.sleep(retryDelayMs);
         continue;
       }
 
@@ -330,12 +416,19 @@ Keep all player-facing writing at about a 10th-grade reading level: short senten
       else if (duplicateOfRecentCase(validation.data, priorCases)) failureKind = "duplicate";
 
       const usage = response.usageMetadata;
+      const willRetry = Boolean(
+        failureKind &&
+        attempt < maxAttempts &&
+        failureKind !== "blocked" &&
+        failureKind !== "rejected"
+      );
       const diagnostics = {
         model,
         modelVersion: response.modelVersion || null,
         attempt,
         finishReason,
         responseLength: rawText.length,
+        durationMs: Date.now() - requestStartedAt,
         tokenUsage: usage ? {
           promptTokenCount: usage.promptTokenCount ?? null,
           candidatesTokenCount: usage.candidatesTokenCount ?? null,
@@ -344,6 +437,9 @@ Keep all player-facing writing at about a 10th-grade reading level: short senten
         candidateCount: candidates.length,
         jsonParsingSucceeded: parsed !== undefined,
         validationPaths,
+        retryable: failureKind !== "blocked" && failureKind !== "rejected",
+        willRetry,
+        outcome: failureKind ? willRetry ? "retrying" : "failed" : "succeeded",
       };
       console.info("[GeminiService] Case generation response.", diagnostics);
 
@@ -372,30 +468,37 @@ Keep all player-facing writing at about a 10th-grade reading level: short senten
       } else {
         retryInstruction = "\nThe previous response was empty or had an unexpected candidate count. Return exactly one complete case object matching the response schema.";
       }
-      await delay(250 * attempt);
+      await this.sleep(retryDelayMilliseconds(null, attempt, this.random));
     }
 
     const finalFailure = lastFailure.kind;
     const providerStatus = Number(lastFailure.cause?.status || lastFailure.cause?.statusCode || 0);
-    const transientProviderFailure = isTransientProviderFailure(lastFailure.cause);
-    const message = transientProviderFailure
-      ? "Gemini is temporarily busy. Please wait a moment and try generating the case again."
-      : providerStatus === 401 || providerStatus === 403
-        ? "Gemini rejected the server credentials. Please contact the app administrator."
-        : finalFailure === "truncated"
-          ? "Gemini's response was truncated before the case was complete. No case was saved; please retry."
-          : finalFailure === "malformed_json"
-            ? "Gemini returned invalid JSON. No case was saved; please retry."
-            : finalFailure === "validation"
-              ? "Gemini's case was missing required information. No case was saved; please retry."
-              : finalFailure === "empty" || finalFailure === "candidate_count"
-                ? "Gemini did not return one complete case. No case was saved; please retry."
-                : finalFailure === "duplicate"
-                  ? "Gemini returned a case too similar to recent content. Please retry."
-                  : "Mind Maze could not generate a valid case. Please try again in a moment.";
+    const rateLimited = providerStatus === 429 || lastFailure.cause?.code === "RESOURCE_EXHAUSTED";
+    const retryableProviderFailure = isRetryableProviderFailure(lastFailure.cause);
+    const message = rateLimited
+      ? "Gemini request limit reached. Please try again later."
+      : providerStatus === 503
+        ? "Gemini is temporarily unavailable. Please try again shortly."
+        : providerStatus === 408 || providerStatus === 502 || providerStatus === 504 || isNetworkFailure(lastFailure.cause)
+          ? "Gemini took too long to respond. Please try again shortly."
+          : providerStatus === 401 || providerStatus === 403
+          ? "The AI service configuration needs attention. Please contact the app administrator."
+          : retryableProviderFailure
+            ? "Gemini is temporarily unavailable. Please try again shortly."
+            : finalFailure === "truncated"
+              ? "Gemini returned an incomplete case. Please retry; no case was saved."
+              : finalFailure === "malformed_json"
+                ? "Gemini returned invalid case data. Please retry; no case was saved."
+                : finalFailure === "validation"
+                  ? "Gemini returned a case missing required information. Please retry; no case was saved."
+                  : finalFailure === "empty" || finalFailure === "candidate_count"
+                    ? "Gemini did not return one complete case. Please retry; no case was saved."
+                    : finalFailure === "duplicate"
+                      ? "Gemini returned a case too similar to recent content. Please retry."
+                      : "Mind Maze could not generate a valid case. Please try again in a moment.";
     const error = new Error(message);
-    error.statusCode = transientProviderFailure || providerStatus === 401 || providerStatus === 403 ? 503 : 502;
-    error.retryable = transientProviderFailure ||
+    error.statusCode = rateLimited ? 429 : retryableProviderFailure || providerStatus === 401 || providerStatus === 403 ? 503 : 502;
+    error.retryable = rateLimited ? false : retryableProviderFailure || providerStatus === 401 || providerStatus === 403 ||
       ["truncated", "malformed_json", "validation", "empty", "candidate_count", "duplicate"].includes(finalFailure);
     error.cause = lastFailure.cause;
     throw error;

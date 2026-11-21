@@ -38,6 +38,7 @@ export const loginSchema = z.object({
 export const createGameSchema = z.object({
   difficulty: z.enum(["easy", "medium", "hard"]).default("medium"),
   theme: z.string().trim().max(100).optional().default("Noir Detective"),
+  generation_id: z.string().uuid().optional(),
 });
 
 export const updateGameSchema = z.object({
