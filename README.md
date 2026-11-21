@@ -117,15 +117,16 @@ Visit [http://localhost:5173](http://localhost:5173) in your browser.
 
 ## Render deployment
 
-Deploy this repository from [render.yaml](./render.yaml) as a Render Blueprint. It configures one Node.js web service that builds the React client and serves it together with the Express API.
+Deploy this repository from [render.yaml](./render.yaml) as a Render Blueprint, with the repository root as the service root directory. It configures one Node.js web service that builds the React client and serves it together with the Express API. The build installs the server and client dependencies, builds `client/dist`, and fails unless `client/dist/index.html` exists.
 The deployed API is available at [https://mind-maze-9nxv.onrender.com](https://mind-maze-9nxv.onrender.com). The frontend uses `VITE_API_URL` when set and otherwise defaults to this API; the `/api` suffix is added if omitted. In Vercel, set `VITE_API_URL` to `https://mind-maze-9nxv.onrender.com/api`. In Render, set `CLIENT_URL` to `https://m-ind-maze.vercel.app` so browser requests pass CORS checks.
 
 If you configure the service manually, use:
-- **Build Command:** `npm ci --prefix client && npm run build --prefix client && npm ci --omit=dev --prefix server`
+- **Root Directory:** repository root
+- **Build Command:** `npm run render:build`
 - **Start Command:** `npm start --prefix server`
 - **Health Check Path:** `/api/health`
 
-Set `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, and `GEMINI_API_KEY` in the Render environment. The build command must be `npm run build` within `client/`; never use `npm build` at the repository root.
+Set `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, and `GEMINI_API_KEY` in the Render environment. The Vercel frontend deployment remains separate and should continue building from `client/`. Render serves that build as a fallback for same-origin frontend requests; it does not replace the Vercel deployment.
 
 Apply [20261121210000_interactive_crime_scenes.sql](./supabase/migrations/20261121210000_interactive_crime_scenes.sql) to Supabase before deploying this feature. It adds the `crime_scene` JSONB column and the private `game_scene_discoveries` table. No new Render variables or storage setup are required.
 

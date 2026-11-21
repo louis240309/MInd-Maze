@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import path from "node:path";
+import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
 import helmet from "helmet";
@@ -85,11 +86,16 @@ app.use("/api/users", userRoutes);
 
 // Serve the built React application from the same web service.
 const serverDirectory = path.dirname(fileURLToPath(import.meta.url));
-const clientDistDirectory = path.resolve(serverDirectory, "../client/dist");
+const clientDistDirectory = path.resolve(serverDirectory, "..", "client", "dist");
+const clientIndexPath = path.join(clientDistDirectory, "index.html");
+if (process.env.NODE_ENV === "production" && !existsSync(clientIndexPath)) {
+  console.error(`[MindMaze] Frontend build is missing at ${clientIndexPath}. Run the Render build command before starting the server.`);
+  process.exit(1);
+}
 app.use(express.static(clientDistDirectory));
 app.use((req, res, next) => {
   if (req.method === "GET" && !req.path.startsWith("/api")) {
-    return res.sendFile(path.join(clientDistDirectory, "index.html"));
+    return res.sendFile(clientIndexPath);
   }
   next();
 });

@@ -1,8 +1,12 @@
 {
   "name": "mind-maze",
   "private": true,
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "build": "npm ci --prefix client && npm run build --prefix client",
+    "render:build": "npm ci --omit=dev --prefix server && npm ci --prefix client && npm run build --prefix client && node -e \"if (!require('node:fs').existsSync('client/dist/index.html')) { console.error('Render build failed: client/dist/index.html was not generated.'); process.exit(1); } console.log('Verified client/dist/index.html');\"",
     "start": "npm ci --omit=dev --prefix server && npm start --prefix server"
   }
 }

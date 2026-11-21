@@ -210,19 +210,28 @@ export class CrimeSceneService {
     }
 
     const existing = discoveries.find(({ object_id }) => object_id === objectId);
+    let updatedDiscoveries = discoveries;
     if (action === "inspect") {
       if (!existing) {
+        const examinedAt = new Date().toISOString();
         const { error } = await this.database.from(tableName).upsert({
           game_id: game.id,
           user_id: userId,
           object_id: object.id,
-          examined_at: new Date().toISOString(),
+          examined_at: examinedAt,
         }, { onConflict: "game_id,object_id", ignoreDuplicates: true });
 
         if (error) {
           console.error("[CrimeSceneService] Could not save object inspection.", { gameId: game.id, objectId, code: error.code || "database error" });
           throw makeError("Could not save this inspection. Please try again.", 503);
         }
+        updatedDiscoveries = [...discoveries, {
+          object_id: object.id,
+          evidence_id: null,
+          examined_at: examinedAt,
+          closer_inspected_at: null,
+          evidence_discovered_at: null,
+        }];
       }
     } else {
       if (!existing?.examined_at) {
@@ -248,10 +257,10 @@ export class CrimeSceneService {
           console.error("[CrimeSceneService] Could not save closer inspection.", { gameId: game.id, objectId, code: error.code || "database error" });
           throw makeError("Could not save this inspection. Please try again.", 503);
         }
+        updatedDiscoveries = discoveries.map((row) => row.object_id === objectId ? { ...row, ...update } : row);
       }
     }
 
-    const updatedDiscoveries = await this._getDiscoveries(game.id, userId);
     const formatted = this._formatScene(game, scene, updatedDiscoveries, isLegacy);
     const publicObject = formatted.areas.flatMap((area) => area.objects).find(({ id }) => id === objectId);
     const clue = object.evidence_id
