@@ -511,7 +511,7 @@ export const InvestigationPage = () => {
                   onSelect={() => setSelectedSuspectId(suspect.id)}
                   isSolved={isSolved}
                   isGuilty={isGuilty}
-                  imageUrl={portrait}
+                  imageAsset={portrait}
                 />
               );
             })}
