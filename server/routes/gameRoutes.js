@@ -71,7 +71,6 @@ router.post(
         difficulty,
         theme,
       });
-      caseVisualService.enqueue(newGame);
 
       res.status(201).json({
         success: true,
@@ -84,28 +83,23 @@ router.post(
   }
 );
 
-// Signed image URLs are issued only after verifying case ownership.
+// Case-specific local artwork is returned only after verifying case ownership.
 router.get("/:id/visuals", async (req, res, next) => {
   try {
     const game = await gameService.getGameById(req.params.id, req.user.id);
     if (!game) return res.status(404).json({ success: false, message: "Case file not found or access restricted." });
     res.set("Cache-Control", "no-store");
-    const visuals = await caseVisualService.getAssets(game.id);
-    if (visuals.status === "not_started") {
-      caseVisualService.enqueue(game);
-      visuals.status = "queued";
-    }
+    const visuals = await caseVisualService.getAssets(game);
     res.json({ success: true, visuals });
   } catch (error) { next(error); }
 });
 
-router.post("/:id/visuals/retry", gameGenLimiter, async (req, res, next) => {
+router.post("/:id/visuals/retry", async (req, res, next) => {
   try {
     const game = await gameService.getGameById(req.params.id, req.user.id);
     if (!game) return res.status(404).json({ success: false, message: "Case file not found or access restricted." });
-    if (!caseVisualService.canRetry(game.id)) return res.status(409).json({ success: false, message: "Visual generation is already running." });
-    caseVisualService.enqueue(game, { retry: true });
-    res.status(202).json({ success: true, message: "Visual case file retry started." });
+    const visuals = await caseVisualService.getAssets(game);
+    res.json({ success: true, message: "Free case visuals are ready.", visuals });
   } catch (error) { next(error); }
 });
 
