@@ -11,9 +11,11 @@ import { errorHandler, notFoundHandler } from "./middleware/errorHandler.js";
 import authRoutes from "./routes/authRoutes.js";
 import gameRoutes from "./routes/gameRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
+import { scenePhotoService } from "./services/scenePhotoService.js";
 
 dotenv.config();
 
+console.info(`[MindMaze] Unsplash photo lookup: ${scenePhotoService.isConfigured() ? "configured" : "not configured; using SVG scenes"}.`);
 const app = express();
 
 // Security headers with Helmet. Unsplash images are served directly from its CDN.
@@ -69,6 +71,7 @@ app.get("/api/health", async (req, res) => {
         status: "degraded",
         database: "disconnected",
         aiService: process.env.GEMINI_API_KEY ? "configured" : "unavailable",
+        scenePhotos: scenePhotoService.isConfigured() ? "unsplash-configured" : "svg-fallback",
       });
     }
 
@@ -76,6 +79,7 @@ app.get("/api/health", async (req, res) => {
       status: "healthy",
       database: "connected",
       aiService: hasGemini ? "gemini-configured" : "unavailable",
+      scenePhotos: scenePhotoService.isConfigured() ? "unsplash-configured" : "svg-fallback",
       timestamp: new Date().toISOString(),
     });
   } catch (error) {

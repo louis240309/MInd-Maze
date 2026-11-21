@@ -209,15 +209,34 @@ export class CrimeSceneService {
     const area = scene.areas.find(({ id }) => id === areaId);
     if (!area) throw makeError("That location is not part of this crime scene.", 404);
     const storedPhoto = ScenePhotoSchema.safeParse(area.photo);
-    if (storedPhoto.success) return storedPhoto.data;
-    if (isLegacy) return null;
+    if (storedPhoto.success) {
+      console.info("[CrimeSceneService] Using the photo saved with this case.", {
+        gameId: game.id,
+        areaId,
+        provider: storedPhoto.data.provider,
+      });
+      return storedPhoto.data;
+    }
+    if (isLegacy) {
+      console.info("[CrimeSceneService] Legacy scene has no photo; using original scene artwork.", {
+        gameId: game.id,
+        areaId,
+      });
+      return null;
+    }
 
     const photo = await this.photos.findPhoto({
       sceneType: scene.scene_type,
       areaName: area.name,
       areaDescription: area.description,
     });
-    if (!photo) return null;
+    if (!photo) {
+      console.info("[CrimeSceneService] No photo available for this location; using original scene artwork.", {
+        gameId: game.id,
+        areaId,
+      });
+      return null;
+    }
     const validatedPhoto = ScenePhotoSchema.parse(photo);
     const updatedScene = structuredClone(game.crime_scene);
     const updatedArea = updatedScene.areas.find(({ id }) => id === areaId);
@@ -238,6 +257,12 @@ export class CrimeSceneService {
     } else {
       game.crime_scene = updatedScene;
     }
+    console.info("[CrimeSceneService] Returning the selected location photo to the client.", {
+      gameId: game.id,
+      areaId,
+      persisted: !error,
+      provider: validatedPhoto.provider,
+    });
     return validatedPhoto;
   }
 

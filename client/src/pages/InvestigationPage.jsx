@@ -189,6 +189,11 @@ export const InvestigationPage = () => {
     try {
       const response = await api.get(`/games/${id}/scene/areas/${area.id}/photo`);
       const photo = response.data.photo || null;
+      console.info("[InvestigationPage] Location photo lookup completed.", {
+        areaId: area.id,
+        available: Boolean(photo),
+        provider: photo?.provider || null,
+      });
       if (photo) {
         setCrimeScene((previous) => previous ? ({
           ...previous,

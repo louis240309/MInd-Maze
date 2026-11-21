@@ -106,6 +106,7 @@ test("missing credentials and provider failures return local-art fallback withou
       return { ok: false, status: 429 };
     },
   });
+  assert.equal(noKeyService.isConfigured(), false);
   const service = new ScenePhotoService({
     accessKey: () => "server-only-test-key",
     fetchImpl: async () => {
@@ -113,6 +114,7 @@ test("missing credentials and provider failures return local-art fallback withou
       return { ok: false, status: 429 };
     },
   });
+  assert.equal(service.isConfigured(), true);
 
   assert.equal(await noKeyService.findPhoto({ sceneType: "mansion", areaName: "Library" }), null);
   assert.equal(requestCount, 0);

@@ -101,17 +101,38 @@ export class ScenePhotoService {
     this.accessKey = accessKey;
     this.cache = new Map();
     this.inFlight = new Map();
+    this.missingKeyWarningLogged = false;
+  }
+
+  isConfigured() {
+    return Boolean(this.accessKey()?.trim());
   }
 
   async findPhoto({ sceneType, areaName, areaDescription }) {
     const accessKey = this.accessKey()?.trim();
-    if (!accessKey) return null;
+    if (!accessKey) {
+      if (!this.missingKeyWarningLogged) {
+        console.warn("[ScenePhotoService] Photo lookup is disabled: UNSPLASH_ACCESS_KEY is not configured. SVG scenes remain enabled.");
+        this.missingKeyWarningLogged = true;
+      }
+      return null;
+    }
 
     const query = buildScenePhotoQuery(sceneType, areaName, areaDescription);
     const cached = this.cache.get(query);
-    if (cached && cached.expiresAt > this.now()) return cached.photo;
-    if (this.inFlight.has(query)) return this.inFlight.get(query);
+    if (cached && cached.expiresAt > this.now()) {
+      console.info("[ScenePhotoService] Photo search cache hit.", {
+        query,
+        result: cached.photo ? "photo" : "fallback",
+      });
+      return cached.photo;
+    }
+    if (this.inFlight.has(query)) {
+      console.info("[ScenePhotoService] Reusing in-flight photo search.", { query });
+      return this.inFlight.get(query);
+    }
 
+    console.info("[ScenePhotoService] Searching Unsplash for a scene location.", { query });
     const request = this._search(query, accessKey);
     this.inFlight.set(query, request);
     try {
@@ -158,6 +179,11 @@ export class ScenePhotoService {
           })
           .find(Boolean);
         photo = suitable || null;
+        console.info("[ScenePhotoService] Unsplash search completed.", {
+          query,
+          results: results.length,
+          selected: Boolean(photo),
+        });
       }
     } catch (error) {
       ttl = FAILURE_CACHE_TTL_MS;
@@ -170,6 +196,9 @@ export class ScenePhotoService {
     this.cache.set(query, { photo, expiresAt: this.now() + ttl });
     while (this.cache.size > MAX_CACHE_ENTRIES) {
       this.cache.delete(this.cache.keys().next().value);
+    }
+    if (!photo && response?.ok) {
+      console.info("[ScenePhotoService] No safe matching photo was available; using original scene artwork.", { query });
     }
     return photo;
   }

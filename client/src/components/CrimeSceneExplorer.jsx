@@ -140,7 +140,13 @@ export const CrimeSceneExplorer = ({
                   loading="lazy"
                   decoding="async"
                   onLoad={() => setPhotoState({ key: photoKey, status: "loaded" })}
-                  onError={() => setPhotoState({ key: photoKey, status: "failed" })}
+                  onError={() => {
+                    console.warn("[CrimeSceneExplorer] Location photo failed to load; using original scene artwork.", {
+                      areaId: activeArea.id,
+                      provider: activeArea.photo.provider,
+                    });
+                    setPhotoState({ key: photoKey, status: "failed" });
+                  }}
                 />
                 {photoStatus === "loading" && <span className="crime-scene-photo-loading" role="status">Loading location photo...</span>}
               </>
