@@ -78,11 +78,9 @@ JWT_SECRET=your-jwt-secret-key
 JWT_EXPIRES_IN=7d
 GEMINI_API_KEY=your-gemini-api-key
 GEMINI_MODEL=gemini-3.5-flash-lite # Optional primary model; server tries supported fallbacks
-GEMINI_IMAGE_MODEL=gemini-3.1-flash-image
-SUPABASE_VISUAL_BUCKET=case-visuals
 ```
 
-Before deploying the visual case-file pipeline, apply `supabase/migrations/20261120210000_case_visual_files.sql` to the Supabase project. This creates the private storage bucket and server-only metadata/job tables. For Render, set the same `GEMINI_IMAGE_MODEL` and `SUPABASE_VISUAL_BUCKET` values in the service environment.
+Visual investigation artwork is original inline SVG rendered locally from each case's theme and evidence. Case reports, suspect dossiers, newspaper clippings, and narrative chronology are composed from the saved case data in the client. This feature makes no image-generation API calls, uses no third-party image assets, and requires no visual-assets migration or storage-bucket configuration. Gemini remains configured only for text-based mystery generation and evaluation.
 
 Start the backend:
 ```bash
