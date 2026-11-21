@@ -82,6 +82,8 @@ GEMINI_MODEL=gemini-3.5-flash-lite # Optional primary model; server tries suppor
 
 Visual investigation artwork is original inline SVG rendered locally from each case's theme and evidence. Case reports, suspect dossiers, newspaper clippings, and narrative chronology are composed from the saved case data in the client. This feature makes no image-generation API calls, uses no third-party image assets, and requires no visual-assets migration or storage-bucket configuration. Gemini remains configured only for text-based mystery generation and evaluation.
 
+The in-case Detective Dictionary includes local definitions for common mystery terms. Unknown words can be looked up through the existing Gemini text client. The server checks that any sentence sent as context is already visible in the player's case, sends only that short sentence and the requested word, and keeps successful explanations in a bounded in-memory cache. No new environment variables or database migration are needed.
+
 Start the backend:
 ```bash
 npm start

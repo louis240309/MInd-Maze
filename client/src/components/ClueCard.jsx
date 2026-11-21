@@ -1,5 +1,6 @@
 import React from "react";
 import { FileText, Fingerprint, MessageSquareQuote, Box } from "lucide-react";
+import { DictionaryText } from "./DetectiveDictionary";
 
 export const ClueCard = ({ clue, index }) => {
   const getTypeMeta = (type) => {
@@ -84,12 +85,12 @@ export const ClueCard = ({ clue, index }) => {
 
       {/* Clue Name */}
       <h4 style={{ fontSize: "1.1rem", color: "#fff", lineHeight: "1.3" }}>
-        {clue.name}
+        <DictionaryText>{clue.name}</DictionaryText>
       </h4>
 
       {/* Physical Description */}
       <p style={{ fontSize: "0.875rem", color: "var(--text-main)", lineHeight: "1.5" }}>
-        {clue.description}
+        <DictionaryText>{clue.description}</DictionaryText>
       </p>
 
       {/* Relevance Callout */}
@@ -116,7 +117,7 @@ export const ClueCard = ({ clue, index }) => {
           Why It Matters
         </span>
         <p style={{ fontSize: "0.825rem", color: "var(--text-muted)", lineHeight: "1.4" }}>
-          {clue.relevance}
+          <DictionaryText>{clue.relevance}</DictionaryText>
         </p>
       </div>
     </div>

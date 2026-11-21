@@ -1,14 +1,16 @@
 import express from "express";
 import { authenticateUser } from "../middleware/auth.js";
-import { gameGenLimiter } from "../middleware/rateLimiter.js";
+import { dictionaryLimiter, gameGenLimiter } from "../middleware/rateLimiter.js";
 import {
   validateBody,
   createGameSchema,
   updateGameSchema,
   solveGameSchema,
+  dictionaryLookupSchema,
 } from "../middleware/validation.js";
 import { gameService } from "../services/gameService.js";
 import { caseVisualService } from "../services/caseVisualService.js";
+import { dictionaryService, isVisibleDictionaryContext } from "../services/dictionaryService.js";
 
 const router = express.Router();
 
@@ -74,7 +76,7 @@ router.post(
 
       res.status(201).json({
         success: true,
-        message: "New case dossier opened successfully.",
+        message: "Your new case is ready.",
         game: newGame,
       });
     } catch (error) {
@@ -127,6 +129,24 @@ router.get("/:id", async (req, res, next) => {
   }
 });
 
+router.post("/:id/dictionary/define", dictionaryLimiter, validateBody(dictionaryLookupSchema), async (req, res, next) => {
+  try {
+    const game = await gameService.getGameById(req.params.id, req.user.id);
+    if (!game) return res.status(404).json({ success: false, message: "Case not found." });
+
+    const { word, context } = req.validatedBody;
+    if (!isVisibleDictionaryContext(game, word, context)) {
+      return res.status(400).json({ success: false, message: "Word help can use only text already shown in this case." });
+    }
+
+    const definition = await dictionaryService.define({ word, context });
+    res.set("Cache-Control", "private, max-age=300");
+    res.json({ success: true, definition });
+  } catch (error) {
+    next(error);
+  }
+});
+
 /**
  * PUT /api/games/:id
  * Update case title or status (active, solved, archived)
@@ -152,7 +172,7 @@ router.put(
 
       res.json({
         success: true,
-        message: "Case dossier updated successfully.",
+        message: "Case updated.",
         game: updated,
       });
     } catch (error) {

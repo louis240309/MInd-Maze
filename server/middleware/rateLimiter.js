@@ -24,6 +24,17 @@ export const gameGenLimiter = rateLimit({
   },
 });
 
+export const dictionaryLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: "Too many word lookups. Please wait a few minutes and try again.",
+  },
+});
+
 // General API rate limiter
 export const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -35,4 +46,3 @@ export const apiLimiter = rateLimit({
     message: "Too many requests from this IP. Please try again shortly.",
   },
 });
-

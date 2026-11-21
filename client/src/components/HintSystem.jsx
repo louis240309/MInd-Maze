@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Key, Lock, Sparkles, AlertCircle } from "lucide-react";
+import { DictionaryText } from "./DetectiveDictionary";
 
 export const HintSystem = ({
   hints = [],
@@ -89,14 +90,14 @@ export const HintSystem = ({
               }}
             >
               {isLoadingHint ? (
-                "Getting a hint..."
+                "Getting a hint…"
               ) : hintsRemaining === 0 ? (
                 <>
                   <Lock size={14} /> No Hints Left
                 </>
               ) : (
                 <>
-                  <Sparkles size={14} color="var(--accent-cyan)" /> Request Hint ({hintsRemaining} left)
+                  <Sparkles size={14} color="var(--accent-cyan)" /> Get a Hint ({hintsRemaining} left)
                 </>
               )}
             </button>
@@ -123,7 +124,7 @@ export const HintSystem = ({
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             <AlertCircle size={20} color="var(--accent-purple)" />
             <span style={{ fontSize: "0.9rem", color: "#fff" }}>
-              Asking for a hint uses one of your three hints. Continue?
+              This uses one of your three hints. Continue?
             </span>
           </div>
           <div style={{ display: "flex", gap: "8px" }}>
@@ -183,7 +184,7 @@ export const HintSystem = ({
                 HINT #{idx + 1}
               </div>
               <p style={{ fontSize: "0.9rem", color: "var(--text-main)", lineHeight: "1.5" }}>
-                {hintText}
+                <DictionaryText>{hintText}</DictionaryText>
               </p>
             </div>
           ))}

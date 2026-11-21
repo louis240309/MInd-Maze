@@ -9,6 +9,7 @@ import { StatusBadge } from "../components/StatusBadge";
 import { DifficultyBadge } from "../components/DifficultyBadge";
 import { CaseVisualPlaceholder } from "../components/CaseVisualPlaceholder";
 import { CaseDocuments } from "../components/CaseDocuments";
+import { DictionaryButton, DictionaryProvider, DictionaryText } from "../components/DetectiveDictionary";
 import {
   ArrowLeft,
   Archive,
@@ -312,6 +313,7 @@ export const InvestigationPage = () => {
     : null;
 
   return (
+    <DictionaryProvider gameId={id}>
     <div style={{ padding: "30px 0 90px 0" }}>
       <div className="container">
         {/* Navigation Breadcrumb & Actions */}
@@ -334,6 +336,7 @@ export const InvestigationPage = () => {
           </Link>
 
           <div style={{ display: "flex", gap: "8px" }}>
+            <DictionaryButton />
             <button
               onClick={handleToggleArchive}
               className="btn btn-secondary btn-sm"
@@ -468,7 +471,7 @@ export const InvestigationPage = () => {
                 whiteSpace: "pre-line",
               }}
             >
-              {game.story}
+              <DictionaryText>{game.story}</DictionaryText>
             </p>
           </div>
         </div>
@@ -567,7 +570,7 @@ export const InvestigationPage = () => {
 
         {activeTab === "Investigation Board" && <section className="case-file-panel">
           <h2 className="case-section-title"><FileText size={22} /> Investigation board</h2>
-          <p className="case-file-caption">Cross-reference the filed scene, people, and evidence. Connections are left for your deduction.</p>
+          <p className="case-file-caption">Compare the scene, suspects, and clues. You decide how they connect.</p>
           {visuals.error && <p className="case-visual-alert" role="status">{visuals.error}</p>}
           {(caseVisualAssets.length || game.suspects?.length || game.clues?.length) ? <div className="case-board">
             {(caseVisualAssets.filter((asset) => asset.asset_type === "crime_scene")).map((asset) => <article className="case-board-card scene" key={asset.id}><VisualImage asset={asset} onOpen={setSelectedImage} /><h3>{asset.name}</h3></article>)}
@@ -582,5 +585,6 @@ export const InvestigationPage = () => {
 
       </div>
     </div>
+    </DictionaryProvider>
   );
 };

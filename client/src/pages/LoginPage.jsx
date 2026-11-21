@@ -84,7 +84,7 @@ export const LoginPage = () => {
             Detective Access
           </h2>
           <p style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>
-            Enter your credentials to access active investigation files.
+            Log in to view your cases.
           </p>
         </div>
 

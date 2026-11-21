@@ -28,41 +28,41 @@ export const NewMysteryPage = () => {
     {
       id: "Victorian Noir",
       title: "Old London",
-      desc: "Dark streets, old houses, and a locked-room mystery.",
+      desc: "Dark streets, old houses, and a mystery in a locked room.",
       icon: Feather,
     },
     {
       id: "Art Heist",
       title: "Museum Theft",
-      desc: "A missing work of art, a dark museum, and rich guests.",
+      desc: "A missing painting, a quiet museum, and its visitors.",
       icon: Gem,
     },
     {
       id: "Cyberpunk Syndicate",
       title: "Future City",
-      desc: "Bright signs, clever machines, and missing computer files.",
+      desc: "Bright signs, smart machines, and missing computer files.",
       icon: Cpu,
     },
     {
       id: "Deep Space Outpost",
       title: "Space Station",
-      desc: "A small crew, a broken door, and a problem in space.",
+      desc: "A small crew, a broken door, and a mystery in space.",
       icon: Rocket,
     },
     {
       id: "Mountain Lodge",
       title: "Snowy Mountain Inn",
-      desc: "Guests are snowed in, and someone has taken a cup of tea.",
+      desc: "Snow traps the guests inside. Then a cup of tea goes missing.",
       icon: Mountain,
     },
   ];
 
   const LOADING_MESSAGES = [
-    "Starting the mystery maker...",
+    "Starting your mystery...",
     "Writing the story...",
-    "Creating three suspects and their stories...",
+    "Adding three suspects...",
     "Adding three clues...",
-    "Preparing hints and the answer...",
+    "Getting hints and the answer ready...",
     "Getting your mystery ready...",
   ];
 

@@ -112,7 +112,7 @@ export const Navbar = () => {
                 to="/new-mystery"
                 className={`btn btn-sm ${isActive("/new-mystery") ? "btn-primary" : "btn-secondary"}`}
               >
-                <PlusCircle size={16} /> Open New Case
+                <PlusCircle size={16} /> New Case
               </Link>
 
               <Link
@@ -217,7 +217,7 @@ export const Navbar = () => {
                 <Compass size={18} /> Dashboard
               </Link>
               <Link to="/new-mystery" onClick={closeMenu} className="btn btn-primary" style={{ justifyContent: "flex-start" }}>
-                <PlusCircle size={18} /> Open New Case
+                <PlusCircle size={18} /> New Case
               </Link>
               <Link to="/history" onClick={closeMenu} className="btn btn-secondary" style={{ justifyContent: "flex-start" }}>
                 <History size={18} /> Case Archives

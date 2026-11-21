@@ -25,21 +25,20 @@ export const Footer = () => {
       >
         <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "var(--text-muted)" }}>
           <Compass size={18} color="#8b5cf6" />
-          <span style={{ fontWeight: 600, color: "var(--text-main)" }}>MindMaze Detective Bureau</span>
+          <span style={{ fontWeight: 600, color: "var(--text-main)" }}>MindMaze</span>
           <span>•</span>
-          <span>AI-Powered Mystery Investigation Engine</span>
+          <span>AI-Powered Mystery Game</span>
         </div>
 
         <p style={{ maxWidth: "600px" }}>
-          Engineered for investigative minds. Dynamic suspect profiling, cryptographic forensic clues, and deductive evaluations powered by Gemini.
+          Read each case, compare the clues, and find out who did it. Gemini helps create the mysteries.
         </p>
 
         <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "0.8rem" }}>
           <ShieldCheck size={14} color="#10b981" />
-          <span>Restricted Access: Confidential Detective Dossiers Encrypted</span>
+          <span>Your cases are private to your account.</span>
         </div>
       </div>
     </footer>
   );
 };
-

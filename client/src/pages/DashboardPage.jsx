@@ -56,7 +56,7 @@ export const DashboardPage = () => {
       }
     } catch (err) {
       console.error("[Dashboard] Error fetching cases:", err);
-      setError("Failed to load investigation dossiers from server.");
+      setError("Could not load your cases. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -72,19 +72,19 @@ export const DashboardPage = () => {
       await api.put(`/games/${gameId}`, { status: newStatus });
       fetchData();
     } catch (err) {
-      alert("Failed to update case status: " + (err.response?.data?.message || err.message));
+      alert("Could not update the case: " + (err.response?.data?.message || err.message));
     }
   };
 
   const handleDelete = async (gameId) => {
-    if (!window.confirm("Permanently incinerate this confidential case file? This action cannot be undone.")) {
+    if (!window.confirm("Delete this case and all its progress? This cannot be undone.")) {
       return;
     }
     try {
       await api.delete(`/games/${gameId}`);
       fetchData();
     } catch (err) {
-      alert("Failed to delete case: " + (err.response?.data?.message || err.message));
+      alert("Could not delete the case: " + (err.response?.data?.message || err.message));
     }
   };
 
@@ -93,7 +93,7 @@ export const DashboardPage = () => {
       await api.put(`/games/${gameId}`, { title: newTitle });
       fetchData();
     } catch (err) {
-      alert("Failed to update case title: " + (err.response?.data?.message || err.message));
+      alert("Could not update the case title: " + (err.response?.data?.message || err.message));
     }
   };
 
@@ -114,7 +114,7 @@ export const DashboardPage = () => {
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "6px" }}>
               <h1 style={{ fontSize: "2rem", margin: 0 }}>
-                Investigator Headquarters
+                Your Cases
               </h1>
               {stats?.detective_rank && (
                 <span
@@ -131,12 +131,12 @@ export const DashboardPage = () => {
               )}
             </div>
             <p style={{ color: "var(--text-muted)", fontSize: "0.95rem" }}>
-              Welcome back, <strong style={{ color: "#fff" }}>{user?.name}</strong>. Here is your current investigative roster.
+              Welcome back, <strong style={{ color: "#fff" }}>{user?.name}</strong>. Here are your cases.
             </p>
           </div>
 
           <Link to="/new-mystery" className="btn btn-primary btn-lg" style={{ gap: "8px" }}>
-            <PlusCircle size={20} /> Open New Case
+            <PlusCircle size={20} /> Start a New Case
           </Link>
         </div>
 
@@ -153,21 +153,21 @@ export const DashboardPage = () => {
             icon={FolderOpen}
             label="Total Cases"
             value={stats ? stats.total_cases : "--"}
-            subtext="Lifetime investigations"
+            subtext="Cases you have opened"
             color="var(--accent-purple)"
           />
           <StatCard
             icon={Compass}
             label="Active Cases"
             value={stats ? stats.active_cases : "--"}
-            subtext="In-progress investigations"
+            subtext="Cases still in play"
             color="#fbbf24"
           />
           <StatCard
             icon={CheckCircle2}
             label="Solved Cases"
             value={stats ? stats.solved_cases : "--"}
-            subtext="Verdicts confirmed"
+            subtext="Cases you solved"
             color="#34d399"
           />
           <StatCard
@@ -181,7 +181,7 @@ export const DashboardPage = () => {
             icon={Trophy}
             label="Points"
             value={stats ? stats.total_points : "--"}
-            subtext="Earned from solved cases"
+            subtext="From solved cases"
             color="#fbbf24"
           />
         </div>
@@ -314,7 +314,7 @@ export const DashboardPage = () => {
             <AlertCircle size={20} />
             <span role="alert" style={{ flex: 1 }}>{error}</span>
             <button type="button" onClick={fetchData} disabled={isLoading} className="btn btn-secondary btn-sm">
-              {isLoading ? "Retrying..." : "Retry"}
+              {isLoading ? "Trying again…" : "Try Again"}
             </button>
           </div>
         )}
@@ -342,7 +342,7 @@ export const DashboardPage = () => {
                 animation: "spin 1s linear infinite",
               }}
             />
-            <p>Retrieving case records from central archives...</p>
+            <p>Loading your cases…</p>
             <style>{`
               @keyframes spin { to { transform: rotate(360deg); } }
             `}</style>
@@ -374,15 +374,15 @@ export const DashboardPage = () => {
               <Compass size={28} />
             </div>
             <h3 style={{ fontSize: "1.3rem", color: "#fff", marginBottom: "8px" }}>
-              No Investigation Files Found
+              No Cases Found
             </h3>
             <p style={{ color: "var(--text-muted)", maxWidth: "440px", margin: "0 auto 24px auto", fontSize: "0.9rem" }}>
               {searchQuery || statusFilter !== "all" || difficultyFilter !== "all"
-                ? "No cases match your active filters. Try adjusting your search query or difficulty setting."
-                : "Your investigation queue is currently empty. Commission your first AI-generated mystery case now!"}
+                ? "No cases match these filters. Change your search or filters and try again."
+                : "You have no cases yet. Start your first mystery now."}
             </p>
             <Link to="/new-mystery" className="btn btn-primary">
-              <PlusCircle size={16} /> Open First Mystery
+              <PlusCircle size={16} /> Start Your First Mystery
             </Link>
           </div>
         ) : (

@@ -224,7 +224,7 @@ export class GameService {
 
     await caseVisualService.removeStoredFiles(storedPaths, gameId);
 
-    return { success: true, message: "Case successfully removed from records." };
+    return { success: true, message: "Case deleted." };
   }
 
   /**
@@ -286,7 +286,7 @@ export class GameService {
         success: true,
         already_solved: true,
         correct: true,
-        message: "This mystery has already been successfully solved!",
+        message: "You already solved this case.",
         solution: game.solution,
         points_earned: game.points_earned || 0,
         status: "solved",
@@ -332,7 +332,7 @@ export class GameService {
             success: true,
             already_solved: true,
             correct: true,
-            message: "This mystery has already been successfully solved!",
+            message: "You already solved this case.",
             solution: latestGame.solution,
             points_earned: latestGame.points_earned || 0,
             status: "solved",

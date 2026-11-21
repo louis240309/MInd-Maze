@@ -56,6 +56,11 @@ export const solveGameSchema = z.object({
   path: ["suspect_id"],
 });
 
+export const dictionaryLookupSchema = z.object({
+  word: z.string().trim().min(1).max(60).regex(/^[\p{L}][\p{L}' -]*$/u, "Enter one word or short phrase."),
+  context: z.string().trim().max(280).optional().default(""),
+});
+
 export const updateProfileSchema = z.object({
   name: z.string().trim().min(2, "Name must be at least 2 characters").max(60, "Name cannot exceed 60 characters"),
 });

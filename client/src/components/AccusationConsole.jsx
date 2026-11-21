@@ -6,6 +6,7 @@ import {
   AlertTriangle,
   Award,
 } from "lucide-react";
+import { DictionaryText } from "./DetectiveDictionary";
 
 export const AccusationConsole = ({
   suspects = [],
@@ -111,7 +112,7 @@ export const AccusationConsole = ({
               THE ANSWER
             </div>
             <p style={{ fontSize: "0.95rem", color: "var(--text-main)", lineHeight: "1.6" }}>
-              {solution}
+              <DictionaryText>{solution}</DictionaryText>
             </p>
           </div>
         </div>
@@ -208,7 +209,7 @@ export const AccusationConsole = ({
                   Try Again
                 </h5>
                 <p style={{ color: "var(--text-main)", fontSize: "0.875rem", lineHeight: "1.5" }}>
-                  {evaluationResult.feedback}
+                  <DictionaryText>{evaluationResult.feedback}</DictionaryText>
                 </p>
               </div>
             </div>
@@ -223,7 +224,7 @@ export const AccusationConsole = ({
               style={{ gap: "10px" }}
             >
               {isSubmitting ? (
-                "Checking your guess..."
+                "Checking your guess…"
               ) : (
                 <>
                   Check My Guess <Gavel size={18} />

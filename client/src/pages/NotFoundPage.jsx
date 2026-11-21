@@ -32,16 +32,15 @@ export const NotFoundPage = () => {
         </div>
         <h1 style={{ fontSize: "2.5rem", marginBottom: "8px" }}>404</h1>
         <h2 style={{ fontSize: "1.3rem", color: "#fff", marginBottom: "12px" }}>
-          Uncharted Cold Case
+          Case Not Found
         </h2>
         <p style={{ color: "var(--text-muted)", fontSize: "0.95rem", marginBottom: "28px" }}>
-          The case file or coordinates you requested do not exist in the bureau archives.
+          We could not find the page you asked for.
         </p>
         <Link to="/dashboard" className="btn btn-primary" style={{ gap: "8px" }}>
-          <ArrowLeft size={16} /> Return to Investigation HQ
+          <ArrowLeft size={16} /> Back to Your Cases
         </Link>
       </div>
     </div>
   );
 };
-

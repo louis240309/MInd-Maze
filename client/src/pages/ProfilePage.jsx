@@ -77,7 +77,7 @@ export const ProfilePage = () => {
       if (res.data.success) {
         setProfile((prev) => ({ ...prev, name: res.data.user.name }));
         updateUser(res.data.user);
-        setSuccessMsg("Detective codename updated successfully.");
+        setSuccessMsg("Your name was updated.");
         setTimeout(() => setSuccessMsg(""), 3000);
       }
     } catch (err) {
@@ -132,7 +132,7 @@ export const ProfilePage = () => {
   if (isLoading) {
     return (
       <div style={{ textAlign: "center", padding: "80px 20px", color: "var(--text-muted)" }}>
-        Loading detective dossier...
+        Loading your profile…
       </div>
     );
   }
@@ -281,7 +281,7 @@ export const ProfilePage = () => {
 
         {/* Statistics Section */}
         <h3 style={{ fontSize: "1.3rem", marginBottom: "16px", color: "#fff" }}>
-          Career Investigation Performance
+          Your Progress
         </h3>
         <div
           style={{
@@ -295,14 +295,14 @@ export const ProfilePage = () => {
             icon={FolderOpen}
             label="Total Cases"
             value={stats ? stats.total_cases : "--"}
-            subtext="Assigned dossiers"
+            subtext="Cases in your account"
             color="var(--accent-purple)"
           />
           <StatCard
             icon={CheckCircle2}
             label="Solved Cases"
             value={stats ? stats.solved_cases : "--"}
-            subtext="Perpetrators caught"
+            subtext="Cases you solved"
             color="#34d399"
           />
           <StatCard

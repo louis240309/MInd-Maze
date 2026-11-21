@@ -39,7 +39,7 @@ export const LandingPage = () => {
               marginBottom: "24px",
             }}
           >
-            <Sparkles size={14} /> AI-Powered Detective Investigation Engine
+            <Sparkles size={14} /> AI-Powered Mystery Game
           </div>
 
           {/* Headline */}
@@ -52,7 +52,7 @@ export const LandingPage = () => {
               marginBottom: "20px",
             }}
           >
-            Unravel The Unsolved. <br />
+            Solve The Mystery. <br />
             <span
               style={{
                 background: "linear-gradient(135deg, #a855f7 0%, #38bdf8 100%)",
@@ -60,7 +60,7 @@ export const LandingPage = () => {
                 WebkitTextFillColor: "transparent",
               }}
             >
-              Challenge The Mind.
+              Test Your Skills.
             </span>
           </h1>
 
@@ -74,8 +74,7 @@ export const LandingPage = () => {
               margin: "0 auto 36px auto",
             }}
           >
-            Every case is dynamically generated with three suspects, three forensic clues,
-            and an encrypted truth. Analyze evidence, challenge fabricated alibis, and crack the mystery.
+            Each case has three suspects and three clues. Study the facts, check each alibi, and find out who did it.
           </p>
 
           {/* Action CTAs */}
@@ -92,7 +91,7 @@ export const LandingPage = () => {
               className="btn btn-primary btn-lg"
               style={{ minWidth: "190px" }}
             >
-              {isAuthenticated ? "Enter Bureau Dashboard" : "Begin Investigation"}{" "}
+              {isAuthenticated ? "View Your Cases" : "Start Investigating"}{" "}
               <ArrowRight size={18} />
             </Link>
 
@@ -102,7 +101,7 @@ export const LandingPage = () => {
                 className="btn btn-secondary btn-lg"
                 style={{ minWidth: "150px" }}
               >
-                Detective Login
+                Log In
               </Link>
             )}
           </div>
@@ -119,10 +118,10 @@ export const LandingPage = () => {
             }}
           >
             <h2 style={{ fontSize: "2rem", marginBottom: "10px" }}>
-              Investigative Protocol
+              How to Play
             </h2>
             <p style={{ color: "var(--text-muted)", maxWidth: "560px", margin: "0 auto" }}>
-              MindMaze combines narrative mystery design with strict logical deduction.
+              Read the case, compare the clues, and decide who did it.
             </p>
           </div>
 
@@ -151,10 +150,10 @@ export const LandingPage = () => {
                 <Sparkles size={22} />
               </div>
               <h3 style={{ fontSize: "1.2rem", marginBottom: "8px" }}>
-                AI Case Architect
+                New Mysteries
               </h3>
               <p style={{ color: "var(--text-muted)", fontSize: "0.9rem", lineHeight: "1.5" }}>
-                Procedural storytelling powered by Gemini. Unique settings from cyberpunk penthouses to gaslit Victorian manors.
+                Gemini creates a new story for each case. Choose a future city, an old manor, or another setting.
               </p>
             </div>
 
@@ -176,10 +175,10 @@ export const LandingPage = () => {
                 <Users size={22} />
               </div>
               <h3 style={{ fontSize: "1.2rem", marginBottom: "8px" }}>
-                Triad of Suspects
+                Three Suspects
               </h3>
               <p style={{ color: "var(--text-muted)", fontSize: "0.9rem", lineHeight: "1.5" }}>
-                Exactly three suspects per dossier. One true culprit and two innocent persons harboring suspicious secrets.
+                Each case has three suspects. One did it. The others may have secrets of their own.
               </p>
             </div>
 
@@ -201,10 +200,10 @@ export const LandingPage = () => {
                 <Search size={22} />
               </div>
               <h3 style={{ fontSize: "1.2rem", marginBottom: "8px" }}>
-                Forensic Clues
+                Clues
               </h3>
               <p style={{ color: "var(--text-muted)", fontSize: "0.9rem", lineHeight: "1.5" }}>
-                Three distinct evidence tokens: physical residues, surveillance loops, and documentary inconsistencies.
+                Find three different clues. They may be objects, test results, or written records.
               </p>
             </div>
 
@@ -226,10 +225,10 @@ export const LandingPage = () => {
                 <Key size={22} />
               </div>
               <h3 style={{ fontSize: "1.2rem", marginBottom: "8px" }}>
-                Tiered Hint System
+                Hints
               </h3>
               <p style={{ color: "var(--text-muted)", fontSize: "0.9rem", lineHeight: "1.5" }}>
-                Need assistance? Unlock up to three progressive hints that point out synergies without spoiling the solution.
+                Stuck? Get up to three hints. Each one helps more, but does not give away the answer.
               </p>
             </div>
           </div>
@@ -263,16 +262,16 @@ export const LandingPage = () => {
               <Sparkles size={22} />
             </div>
             <h2 style={{ fontSize: "1.6rem", marginBottom: "10px" }}>
-              Your Next Case Is Generated On Demand
+              Your Next Case Is Made for You
             </h2>
             <p style={{ color: "var(--text-muted)", maxWidth: "620px", margin: "0 auto 22px" }}>
-              Every new dossier is created by Gemini for your selected setting and difficulty. No preview case is reused when you open a new investigation.
+                Gemini creates a new case for the place and difficulty you choose. Each new case has its own story.
             </p>
             <Link
               to={isAuthenticated ? "/new-mystery" : "/register"}
               className="btn btn-primary"
             >
-              {isAuthenticated ? "Generate a New Case" : "Create Your Detective Account"} <ArrowRight size={16} />
+              {isAuthenticated ? "Start a New Case" : "Create an Account"} <ArrowRight size={16} />
             </Link>
           </div>
         </div>

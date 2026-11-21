@@ -1,6 +1,7 @@
 import React from "react";
 import { AlertTriangle, ShieldCheck, Quote, CheckCircle } from "lucide-react";
 import { CaseVisualPlaceholder } from "./CaseVisualPlaceholder";
+import { DictionaryText } from "./DetectiveDictionary";
 
 export const SuspectCard = ({
   suspect,
@@ -14,14 +15,14 @@ export const SuspectCard = ({
     <div
       onClick={!isSolved ? onSelect : undefined}
       onKeyDown={!isSolved ? (event) => {
-        if (event.key === "Enter" || event.key === " ") {
+        if (event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) {
           event.preventDefault();
           onSelect?.();
         }
       } : undefined}
-      role={!isSolved ? "button" : undefined}
+      role="group"
       tabIndex={!isSolved ? 0 : undefined}
-      aria-pressed={!isSolved ? isSelected : undefined}
+      aria-label={`${suspect.name} suspect profile${isSelected ? ", selected" : ""}`}
       style={{
         backgroundColor: isSelected
           ? "rgba(139, 92, 246, 0.15)"
@@ -71,7 +72,7 @@ export const SuspectCard = ({
 
           <div>
             <h4 style={{ fontSize: "1.1rem", color: "#fff", marginBottom: "2px" }}>
-              {suspect.name}
+              <DictionaryText>{suspect.name}</DictionaryText>
             </h4>
             <span
               style={{
@@ -84,7 +85,7 @@ export const SuspectCard = ({
                 display: "inline-block",
               }}
             >
-              {suspect.role}
+              <DictionaryText>{suspect.role}</DictionaryText>
             </span>
             {suspect.age && <span style={{ display: "block", marginTop: "5px", color: "var(--text-muted)", fontSize: "0.78rem" }}>Age {suspect.age}</span>}
           </div>
@@ -134,8 +135,8 @@ export const SuspectCard = ({
       </div>
 
       {(suspect.background || suspect.relationship) && <div style={{ color: "var(--text-muted)", fontSize: "0.84rem", lineHeight: 1.5 }}>
-        {suspect.background && <p style={{ margin: "0 0 5px" }}>{suspect.background}</p>}
-        {suspect.relationship && <p style={{ margin: 0 }}><strong style={{ color: "var(--text-main)" }}>Case connection:</strong> {suspect.relationship}</p>}
+        {suspect.background && <p style={{ margin: "0 0 5px" }}><DictionaryText>{suspect.background}</DictionaryText></p>}
+        {suspect.relationship && <p style={{ margin: 0 }}><strong style={{ color: "var(--text-main)" }}>Case connection:</strong> <DictionaryText>{suspect.relationship}</DictionaryText></p>}
       </div>}
 
       {/* Motive Details */}
@@ -151,7 +152,7 @@ export const SuspectCard = ({
           <AlertTriangle size={13} /> Possible Reason
         </div>
         <p style={{ fontSize: "0.85rem", color: "var(--text-main)", lineHeight: "1.4" }}>
-          {suspect.motive}
+          <DictionaryText>{suspect.motive}</DictionaryText>
         </p>
       </div>
 
@@ -168,7 +169,7 @@ export const SuspectCard = ({
           <ShieldCheck size={13} /> Their Story
         </div>
         <p style={{ fontSize: "0.85rem", color: "var(--text-main)", lineHeight: "1.4" }}>
-          {suspect.alibi}
+          <DictionaryText>{suspect.alibi}</DictionaryText>
         </p>
       </div>
 
@@ -184,7 +185,7 @@ export const SuspectCard = ({
       >
         <Quote size={16} color="var(--accent-purple)" style={{ opacity: 0.5, marginBottom: "4px" }} />
         <p style={{ fontSize: "0.85rem", fontStyle: "italic", color: "var(--text-muted)", lineHeight: "1.45" }}>
-          "{suspect.statement}"
+          “<DictionaryText>{suspect.statement}</DictionaryText>”
         </p>
       </div>
     </div>
