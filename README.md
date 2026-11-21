@@ -133,6 +133,8 @@ Set `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, and `GEMINI_API_KEY` in the Render en
 
 Apply [20261121210000_interactive_crime_scenes.sql](./supabase/migrations/20261121210000_interactive_crime_scenes.sql) to Supabase before deploying this feature. It adds the `crime_scene` JSONB column and the private `game_scene_discoveries` table. No new Render variables or storage setup are required.
 
+Apply [20261121220000_enable_core_rls.sql](./supabase/migrations/20261121220000_enable_core_rls.sql) to enable row-level security on private account and case tables. Mind Maze accesses them through its privileged backend; direct client roles have no table policies.
+
 ---
 
 ## 🔑 Gemini API Key Configuration
@@ -161,7 +163,7 @@ npm run lint
 To run backend unit tests:
 ```bash
 cd server
-node --test services/*.test.js
+npm test
 ```
 
-The server integration audit is available with `cd server && npm test`. It requires working Gemini and Supabase credentials and creates then removes temporary test records.
+The live server integration audit is separate: run `npm run test:integration` from `server/`. It requires working Gemini and Supabase credentials and creates then removes temporary test records. It makes multiple live Gemini requests; use it sparingly.
