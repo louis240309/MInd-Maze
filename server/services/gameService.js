@@ -139,6 +139,12 @@ export class GameService {
     return crimeSceneService.getScene(game, userId);
   }
 
+  async getCrimeSceneAreaPhoto(gameId, userId, areaId) {
+    const game = await this._getRawGame(gameId, userId);
+    if (!game) return undefined;
+    return crimeSceneService.getAreaPhoto(game, userId, areaId);
+  }
+
   async inspectCrimeSceneObject(gameId, userId, objectId, action) {
     const game = await this._getRawGame(gameId, userId);
     if (!game) return null;

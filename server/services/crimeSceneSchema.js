@@ -2,6 +2,19 @@ import { z } from "zod";
 
 const clueIdSchema = z.string().regex(/^clue_[1-3]$/);
 const normalizedText = (value) => String(value || "").toLocaleLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+const safeUnsplashUrl = (hostname) => z.string().url().max(2048).refine((value) => {
+  const url = new URL(value);
+  return url.protocol === "https:" && url.hostname === hostname;
+});
+
+export const ScenePhotoSchema = z.object({
+  provider: z.literal("unsplash"),
+  image_url: safeUnsplashUrl("images.unsplash.com"),
+  alt_text: z.string().trim().min(1).max(300),
+  photographer_name: z.string().trim().min(1).max(100),
+  photographer_url: safeUnsplashUrl("unsplash.com").or(safeUnsplashUrl("www.unsplash.com")),
+  photo_page_url: safeUnsplashUrl("unsplash.com").or(safeUnsplashUrl("www.unsplash.com")),
+});
 
 const SceneObjectSchema = z.object({
   id: z.string().regex(/^object_[1-9]$/),

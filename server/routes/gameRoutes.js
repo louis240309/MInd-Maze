@@ -117,6 +117,17 @@ router.get("/:id/scene", async (req, res, next) => {
   }
 });
 
+router.get("/:id/scene/areas/:areaId/photo", async (req, res, next) => {
+  try {
+    const photo = await gameService.getCrimeSceneAreaPhoto(req.params.id, req.user.id, req.params.areaId);
+    if (photo === undefined) return res.status(404).json({ success: false, message: "Case not found." });
+    res.set("Cache-Control", photo ? "private, max-age=86400" : "private, no-store");
+    res.json({ success: true, photo });
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.post(
   "/:id/scene/inspect",
   sceneInspectionLimiter,

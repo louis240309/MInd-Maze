@@ -28,8 +28,8 @@ MindMaze is a full-stack detective game powered by generative AI. Step into the 
   - **Accusation Console**: Formally indict suspects and explain deduction to receive immediate forensic evaluation.
 
 - **Free Visual Case Files**
-  - Uses original, locally rendered SVG art for scenes and evidence; it makes no paid image-generation requests or external image downloads.
-  - Shows an interactive illustrated room with clickable object markers, zoom, inspection notes, and case-specific document layouts.
+  - Uses optional, theme-matched Unsplash location photographs with photographer attribution and original local SVG fallback art.
+  - Shows an interactive illustrated room with clickable object markers, zoom, inspection notes, and case-specific document layouts. Stock photos are illustrative references, not depictions of fictional case evidence.
   - Reuses the existing evidence gallery, suspect profiles, investigation board, and documents.
   - Older cases keep their original clues and receive a harmless background scene for exploration.
 
@@ -83,7 +83,9 @@ GEMINI_MODEL=gemini-3.5-flash-lite # Optional primary model; server tries suppor
 
 Crime scene details are included in the existing Gemini text-generation request and stored in `games.crime_scene`. Object examinations and collected clue references are saved in `game_scene_discoveries`. The server checks case ownership and discovery requirements, and does not send locked clue details to the browser. Older cases without scene data keep their existing evidence and receive a local background scene.
 
-Scene and evidence artwork uses original inline SVG. No image-generation API, third-party image assets, new environment variables, or storage bucket is needed. The current case report, suspect profile, evidence gallery, and investigation board are reused. The suspect evidence-question panel compares clues with the recorded statement; it does not make an extra AI request or invent a new response.
+Interactive scenes use original inline SVG artwork by default. If the optional server-only `UNSPLASH_ACCESS_KEY` is configured, the server searches for a landscape photo matching the scene theme and location when that location is first opened. The chosen image URL and attribution are saved in the existing `games.crime_scene` JSONB column, so opening the same case again does not repeat the search. Search results are also shared in a bounded 24-hour in-memory cache. Provider errors, missing keys, and image load failures keep the scene playable with its original SVG. Unsplash requires direct CDN hotlinking and photographer/Unsplash attribution; the UI links both. Its API demo limit is currently 50 metadata requests per hour, and production limits require Unsplash approval. See the [Unsplash API guidelines](https://unsplash.com/documentation) and [attribution rules](https://help.unsplash.com/api-guidelines/guideline-attribution).
+
+Pixabay is not used for permanent scene backgrounds: its [official API documentation](https://pixabay.com/api/docs/) currently lists a default limit of 100 requests per 60 seconds and asks clients to cache API responses for 24 hours. It says image URLs are for temporary search-result display and images should be hosted by the app for permanent use. The project does not download or redistribute Pixabay images. No paid image-generation API or new storage bucket is used. The existing case report, suspect profile, evidence gallery, and investigation board remain in place.
 
 The in-case Detective Dictionary includes local definitions for common mystery terms. Unknown words can be looked up through the existing Gemini text client. The server checks that any sentence sent as context is already visible in the player's case, sends only that short sentence and the requested word, and keeps successful explanations in a bounded in-memory cache.
 
@@ -126,7 +128,7 @@ If you configure the service manually, use:
 - **Start Command:** `npm start --prefix server`
 - **Health Check Path:** `/api/health`
 
-Set `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, and `GEMINI_API_KEY` in the Render environment. The Vercel frontend deployment remains separate and should continue building from `client/`. Render serves that build as a fallback for same-origin frontend requests; it does not replace the Vercel deployment.
+Set `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, and `GEMINI_API_KEY` in the Render environment. Add `UNSPLASH_ACCESS_KEY` there only if you want to enable location photos; it is optional, must stay server-side, and is never needed by Vercel. The Vercel frontend deployment remains separate and should continue building from `client/`. Render serves that build as a fallback for same-origin frontend requests; it does not replace the Vercel deployment.
 
 Apply [20261121210000_interactive_crime_scenes.sql](./supabase/migrations/20261121210000_interactive_crime_scenes.sql) to Supabase before deploying this feature. It adds the `crime_scene` JSONB column and the private `game_scene_discoveries` table. No new Render variables or storage setup are required.
 

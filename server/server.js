@@ -16,8 +16,15 @@ dotenv.config();
 
 const app = express();
 
-// Security headers with Helmet
-app.use(helmet());
+// Security headers with Helmet. Unsplash images are served directly from its CDN.
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+      "img-src": ["'self'", "data:", "https://images.unsplash.com"],
+    },
+  },
+}));
 
 // Cross-Origin Resource Sharing
 const clientUrl = process.env.CLIENT_URL || "http://localhost:5173";

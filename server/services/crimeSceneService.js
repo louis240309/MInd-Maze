@@ -1,5 +1,6 @@
 import { supabase } from "../config/supabase.js";
-import { hasValidGeneratedScene } from "./crimeSceneSchema.js";
+import { hasValidGeneratedScene, ScenePhotoSchema } from "./crimeSceneSchema.js";
+import { scenePhotoService } from "./scenePhotoService.js";
 
 const tableName = "game_scene_discoveries";
 
@@ -73,8 +74,9 @@ export function buildLegacyCrimeScene(game) {
 }
 
 export class CrimeSceneService {
-  constructor(database = supabase) {
+  constructor(database = supabase, photos = scenePhotoService) {
     this.database = database;
+    this.photos = photos;
   }
 
   async _getDiscoveries(gameId, userId) {
@@ -147,31 +149,35 @@ export class CrimeSceneService {
       }] : [];
     });
 
-    const formattedAreas = scene.areas.map((area) => ({
-      id: area.id,
-      name: area.name,
-      description: area.description,
-      objects: area.objects.map((object) => {
-        const row = discoveries.find(({ object_id }) => object_id === object.id);
-        const available = isLegacy || !object.requires_evidence_id || discoveredEvidenceIds.has(object.requires_evidence_id);
-        const evidenceCollected = Boolean(row?.evidence_id);
-        return {
-          id: object.id,
-          name: object.name,
-          category: object.category,
-          x: object.x,
-          y: object.y,
-          description: object.description,
-          ...(examinedObjectIds.has(object.id) ? { inspection_text: object.inspection_text } : {}),
-          ...(closerObjectIds.has(object.id) ? { closer_text: object.closer_text } : {}),
-          ...(evidenceCollected ? { evidence_id: row.evidence_id } : {}),
-          available,
-          examined: examinedObjectIds.has(object.id),
-          closer_inspected: closerObjectIds.has(object.id),
-          evidence_status: evidenceCollected ? "found" : closerObjectIds.has(object.id) ? "none" : "unknown",
-        };
-      }),
-    }));
+    const formattedAreas = scene.areas.map((area) => {
+      const photo = ScenePhotoSchema.safeParse(area.photo);
+      return {
+        id: area.id,
+        name: area.name,
+        description: area.description,
+        ...(photo.success ? { photo: photo.data } : {}),
+        objects: area.objects.map((object) => {
+          const row = discoveries.find(({ object_id }) => object_id === object.id);
+          const available = isLegacy || !object.requires_evidence_id || discoveredEvidenceIds.has(object.requires_evidence_id);
+          const evidenceCollected = Boolean(row?.evidence_id);
+          return {
+            id: object.id,
+            name: object.name,
+            category: object.category,
+            x: object.x,
+            y: object.y,
+            description: object.description,
+            ...(examinedObjectIds.has(object.id) ? { inspection_text: object.inspection_text } : {}),
+            ...(closerObjectIds.has(object.id) ? { closer_text: object.closer_text } : {}),
+            ...(evidenceCollected ? { evidence_id: row.evidence_id } : {}),
+            available,
+            examined: examinedObjectIds.has(object.id),
+            closer_inspected: closerObjectIds.has(object.id),
+            evidence_status: evidenceCollected ? "found" : closerObjectIds.has(object.id) ? "none" : "unknown",
+          };
+        }),
+      };
+    });
 
     return {
       case_id: game.id,
@@ -196,6 +202,43 @@ export class CrimeSceneService {
     const { scene, isLegacy } = this._sceneForGame(game);
     const discoveries = await this._getDiscoveries(game.id, userId);
     return this._formatScene(game, scene, discoveries, isLegacy);
+  }
+
+  async getAreaPhoto(game, userId, areaId) {
+    const { scene, isLegacy } = this._sceneForGame(game);
+    const area = scene.areas.find(({ id }) => id === areaId);
+    if (!area) throw makeError("That location is not part of this crime scene.", 404);
+    const storedPhoto = ScenePhotoSchema.safeParse(area.photo);
+    if (storedPhoto.success) return storedPhoto.data;
+    if (isLegacy) return null;
+
+    const photo = await this.photos.findPhoto({
+      sceneType: scene.scene_type,
+      areaName: area.name,
+      areaDescription: area.description,
+    });
+    if (!photo) return null;
+    const validatedPhoto = ScenePhotoSchema.parse(photo);
+    const updatedScene = structuredClone(game.crime_scene);
+    const updatedArea = updatedScene.areas.find(({ id }) => id === areaId);
+    updatedArea.photo = validatedPhoto;
+
+    const { error } = await this.database
+      .from("games")
+      .update({ crime_scene: updatedScene })
+      .eq("id", game.id)
+      .eq("user_id", userId);
+
+    if (error) {
+      console.error("[CrimeSceneService] Could not cache location photo on the case.", {
+        gameId: game.id,
+        areaId,
+        code: error.code || "database error",
+      });
+    } else {
+      game.crime_scene = updatedScene;
+    }
+    return validatedPhoto;
   }
 
   async inspectObject(game, userId, objectId, action) {

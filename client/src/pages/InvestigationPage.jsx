@@ -105,6 +105,7 @@ export const InvestigationPage = () => {
   const [activeTab, setActiveTab] = useState("Overview");
   const [visuals, setVisuals] = useState({ status: "not_started", error: null, assets: [] });
   const [selectedImage, setSelectedImage] = useState(null);
+  const [selectedPhotoFailed, setSelectedPhotoFailed] = useState(false);
   const [crimeScene, setCrimeScene] = useState(null);
   const [isLoadingScene, setIsLoadingScene] = useState(true);
   const [sceneError, setSceneError] = useState("");
@@ -183,6 +184,33 @@ export const InvestigationPage = () => {
   useEffect(() => {
     fetchCrimeScene();
   }, [fetchCrimeScene]);
+
+  const loadCrimeScenePhoto = useCallback(async (area) => {
+    try {
+      const response = await api.get(`/games/${id}/scene/areas/${area.id}/photo`);
+      const photo = response.data.photo || null;
+      if (photo) {
+        setCrimeScene((previous) => previous ? ({
+          ...previous,
+          areas: previous.areas.map((currentArea) =>
+            currentArea.id === area.id ? { ...currentArea, photo } : currentArea
+          ),
+        }) : previous);
+      }
+      return photo;
+    } catch (photoError) {
+      console.warn("[InvestigationPage] Location photo unavailable; using local scene art.", {
+        areaId: area.id,
+        status: photoError.response?.status || null,
+      });
+      return null;
+    }
+  }, [id]);
+
+  const openVisual = useCallback((asset) => {
+    setSelectedPhotoFailed(false);
+    setSelectedImage(asset);
+  }, []);
 
   const handleInspectSceneObject = async (object, action) => {
     if (isInspectingScene) return;
@@ -600,7 +628,8 @@ export const InvestigationPage = () => {
             actionMessage={sceneActionMessage}
             actionError={sceneActionError}
             onInspect={handleInspectSceneObject}
-            onZoom={setSelectedImage}
+            onLoadPhoto={loadCrimeScenePhoto}
+            onZoom={openVisual}
             onUseEvidence={handleUseEvidence}
           />
         </section>}
@@ -609,7 +638,7 @@ export const InvestigationPage = () => {
           <h2 className="case-section-title"><Search size={22} /> Evidence gallery</h2>
           <p className="case-file-caption">Collected evidence appears here. Compare each item with the suspects&apos; statements.</p>
           {visuals.error && <p className="case-visual-alert" role="status">{visuals.error}</p>}
-          {caseClues.length ? <div className="case-visual-grid">{caseClues.map((clue, index) => { const asset = caseVisualAssets.find((item) => item.asset_type === "evidence" && (item.related_id === clue.id || item.asset_key === `evidence_${clue.id || index + 1}`)); return <article className="case-evidence-file" key={clue.id || index}><VisualImage asset={asset || { name: clue.name, status: "ready", asset_type: "evidence", theme_key: caseVisualAssets[0]?.theme_key || "classic", motif: evidenceMotifFor(clue) }} onOpen={setSelectedImage} /><span className="evidence-stamp">{asset?.asset_key || `evidence_${clue.id || index + 1}`}</span>{clue.discovery_order && <small className="evidence-discovery">Found at {clue.discovery_location || "the scene"} · #{clue.discovery_order}</small>}<ClueCard clue={clue} index={index} /></article>; })}</div> : <EmptyVisualState text="No evidence has been collected yet. Explore the crime scene to find clues." />}
+          {caseClues.length ? <div className="case-visual-grid">{caseClues.map((clue, index) => { const asset = caseVisualAssets.find((item) => item.asset_type === "evidence" && (item.related_id === clue.id || item.asset_key === `evidence_${clue.id || index + 1}`)); return <article className="case-evidence-file" key={clue.id || index}><VisualImage asset={asset || { name: clue.name, status: "ready", asset_type: "evidence", theme_key: caseVisualAssets[0]?.theme_key || "classic", motif: evidenceMotifFor(clue) }} onOpen={openVisual} /><span className="evidence-stamp">{asset?.asset_key || `evidence_${clue.id || index + 1}`}</span>{clue.discovery_order && <small className="evidence-discovery">Found at {clue.discovery_location || "the scene"} · #{clue.discovery_order}</small>}<ClueCard clue={clue} index={index} /></article>; })}</div> : <EmptyVisualState text="No evidence has been collected yet. Explore the crime scene to find clues." />}
         </section>}
 
         {activeTab === "Suspects" && <>
@@ -665,15 +694,15 @@ export const InvestigationPage = () => {
           <p className="case-file-caption">Compare the scene, suspects, and clues. You decide how they connect.</p>
           {visuals.error && <p className="case-visual-alert" role="status">{visuals.error}</p>}
           {(caseVisualAssets.length || game.suspects?.length || caseClues.length) ? <div className="case-board">
-            {(caseVisualAssets.filter((asset) => asset.asset_type === "crime_scene")).map((asset) => <article className="case-board-card scene" key={asset.id}><VisualImage asset={asset} onOpen={setSelectedImage} /><h3>{asset.name}</h3></article>)}
-            {(game.suspects || []).map((suspect, index) => { const portrait = caseVisualAssets.find((asset) => asset.asset_type === "suspect" && (asset.related_id === suspect.id || asset.asset_key === `suspect_${suspect.id || index + 1}`)); return <article className="case-board-card" key={suspect.id || index}><VisualImage asset={portrait || { name: suspect.name, status: "ready", asset_type: "suspect", theme_key: caseVisualAssets[0]?.theme_key || "classic", motif: `portrait_${index + 1}` }} onOpen={setSelectedImage} /><h3>{suspect.name}</h3><p>{suspect.role}</p></article>; })}
-            {caseClues.map((clue, index) => { const photo = caseVisualAssets.find((asset) => asset.asset_type === "evidence" && (asset.related_id === clue.id || asset.asset_key === `evidence_${clue.id || index + 1}`)); return <article className="case-board-card evidence" key={clue.id || index}><VisualImage asset={photo || { name: clue.name, status: "ready", asset_type: "evidence", theme_key: caseVisualAssets[0]?.theme_key || "classic", motif: evidenceMotifFor(clue) }} onOpen={setSelectedImage} /><h3>{clue.name}</h3><p>{clue.description}</p></article>; })}
+            {(caseVisualAssets.filter((asset) => asset.asset_type === "crime_scene")).map((asset) => <article className="case-board-card scene" key={asset.id}><VisualImage asset={asset} onOpen={openVisual} /><h3>{asset.name}</h3></article>)}
+            {(game.suspects || []).map((suspect, index) => { const portrait = caseVisualAssets.find((asset) => asset.asset_type === "suspect" && (asset.related_id === suspect.id || asset.asset_key === `suspect_${suspect.id || index + 1}`)); return <article className="case-board-card" key={suspect.id || index}><VisualImage asset={portrait || { name: suspect.name, status: "ready", asset_type: "suspect", theme_key: caseVisualAssets[0]?.theme_key || "classic", motif: `portrait_${index + 1}` }} onOpen={openVisual} /><h3>{suspect.name}</h3><p>{suspect.role}</p></article>; })}
+            {caseClues.map((clue, index) => { const photo = caseVisualAssets.find((asset) => asset.asset_type === "evidence" && (asset.related_id === clue.id || asset.asset_key === `evidence_${clue.id || index + 1}`)); return <article className="case-board-card evidence" key={clue.id || index}><VisualImage asset={photo || { name: clue.name, status: "ready", asset_type: "evidence", theme_key: caseVisualAssets[0]?.theme_key || "classic", motif: evidenceMotifFor(clue) }} onOpen={openVisual} /><h3>{clue.name}</h3><p>{clue.description}</p></article>; })}
           </div> : <EmptyVisualState text="Your board will fill as the case file is prepared." />}
         </section>}
 
         {activeTab === "Case Documents" && <CaseDocuments game={{ ...game, clues: caseClues }} />}
 
-        {selectedImage && <div className="case-image-lightbox" role="dialog" aria-modal="true" aria-label={selectedImage.name} onClick={() => setSelectedImage(null)}><button type="button" className="case-lightbox-close" onClick={() => setSelectedImage(null)} aria-label="Close image">×</button><div className="case-image-lightbox-art" onClick={(event) => event.stopPropagation()}><CaseVisualPlaceholder type={selectedImage.asset_type} themeKey={selectedImage.theme_key} motif={selectedImage.motif} /></div><p>{selectedImage.name}</p></div>}
+        {selectedImage && <div className="case-image-lightbox" role="dialog" aria-modal="true" aria-label={selectedImage.name} onClick={() => setSelectedImage(null)}><button type="button" className="case-lightbox-close" onClick={() => setSelectedImage(null)} aria-label="Close image">×</button><div className="case-image-lightbox-art" onClick={(event) => event.stopPropagation()}>{selectedImage.photo?.image_url && !selectedPhotoFailed ? <img src={selectedImage.photo.image_url} alt={selectedImage.photo.alt_text} onError={() => setSelectedPhotoFailed(true)} /> : <CaseVisualPlaceholder type={selectedImage.asset_type} themeKey={selectedImage.theme_key} motif={selectedImage.motif} />}</div><p>{selectedImage.name}</p>{selectedImage.photo && <small className="photo-attribution">Photo by <a href={selectedImage.photo.photographer_url} target="_blank" rel="noreferrer">{selectedImage.photo.photographer_name}</a> on <a href={selectedImage.photo.photo_page_url} target="_blank" rel="noreferrer">Unsplash</a>. Illustrative location photo, not case evidence.</small>}</div>}
 
       </div>
     </div>

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   BookOpen,
   CheckCircle2,
@@ -36,10 +36,13 @@ export const CrimeSceneExplorer = ({
   actionMessage,
   actionError,
   onInspect,
+  onLoadPhoto,
   onZoom,
   onUseEvidence,
 }) => {
   const [selection, setSelection] = useState({ caseId: "", areaId: "", objectId: "" });
+  const [photoState, setPhotoState] = useState({ key: "", status: "loading" });
+  const attemptedPhotos = useRef(new Set());
   const areas = scene?.areas || [];
   const sameCase = selection.caseId === scene?.case_id;
   const activeAreaId = sameCase ? selection.areaId : "";
@@ -47,6 +50,20 @@ export const CrimeSceneExplorer = ({
   const activeArea = areas.find(({ id }) => id === activeAreaId) || areas[0];
   const selectedObject = activeArea?.objects.find(({ id }) => id === selectedObjectId) || null;
   const progress = scene?.progress;
+  const photoKey = activeArea ? `${scene?.case_id}:${activeArea.id}:${activeArea.photo?.image_url || ""}` : "";
+  const photoStatus = photoState.key === photoKey
+    ? photoState.status
+    : activeArea?.photo ? "loading" : "fallback";
+
+  useEffect(() => {
+    if (!activeArea || activeArea.photo || !onLoadPhoto) return;
+    const requestKey = `${scene.case_id}:${activeArea.id}`;
+    if (attemptedPhotos.current.has(requestKey)) return;
+    attemptedPhotos.current.add(requestKey);
+    onLoadPhoto(activeArea).then((photo) => {
+      if (photo) setPhotoState({ key: `${requestKey}:${photo.image_url}`, status: "loading" });
+    });
+  }, [activeArea, activeArea?.photo?.image_url, onLoadPhoto, scene?.case_id]);
 
   const evidenceById = useMemo(
     () => new Map((scene?.evidence || []).map((evidence) => [evidence.id, evidence])),
@@ -72,7 +89,13 @@ export const CrimeSceneExplorer = ({
         <button
           type="button"
           className="btn btn-secondary btn-sm"
-          onClick={() => onZoom({ asset_type: "crime_scene", theme_key: scene.scene_type, motif: scene.scene_type, name: scene.name })}
+          onClick={() => onZoom({
+            asset_type: "crime_scene",
+            theme_key: scene.scene_type,
+            motif: scene.scene_type,
+            name: `${scene.name} — ${activeArea.name}`,
+            photo: activeArea.photo,
+          })}
         >
           <ZoomIn size={15} /> Zoom scene
         </button>
@@ -106,8 +129,22 @@ export const CrimeSceneExplorer = ({
 
       <div className="crime-scene-layout">
         <div className="crime-scene-main">
-          <div className="crime-scene-art">
+          <div className={`crime-scene-art${activeArea.photo && photoStatus === "loaded" ? " has-photo" : ""}`}>
             <CaseVisualPlaceholder type="crime_scene" themeKey={scene.scene_type} motif={scene.scene_type} />
+            {activeArea.photo && photoStatus !== "failed" && (
+              <>
+                <img
+                  className={`crime-scene-photo${photoStatus === "loaded" ? " loaded" : ""}`}
+                  src={activeArea.photo.image_url}
+                  alt={activeArea.photo.alt_text}
+                  loading="lazy"
+                  decoding="async"
+                  onLoad={() => setPhotoState({ key: photoKey, status: "loaded" })}
+                  onError={() => setPhotoState({ key: photoKey, status: "failed" })}
+                />
+                {photoStatus === "loading" && <span className="crime-scene-photo-loading" role="status">Loading location photo...</span>}
+              </>
+            )}
             {activeArea.objects.map((object, index) => (
               <button
                 type="button"
@@ -124,6 +161,19 @@ export const CrimeSceneExplorer = ({
               </button>
             ))}
           </div>
+          {activeArea.photo && photoStatus === "loaded" && (
+            <div className="crime-scene-photo-caption">
+              <span>Illustrative location photo. Markers are case objects, not photographic evidence.</span>
+              <span>
+                Photo by{" "}
+                <a href={activeArea.photo.photographer_url} target="_blank" rel="noreferrer">
+                  {activeArea.photo.photographer_name}
+                </a>{" "}
+                on{" "}
+                <a href={activeArea.photo.photo_page_url} target="_blank" rel="noreferrer">Unsplash</a>
+              </span>
+            </div>
+          )}
           <div className="crime-scene-object-list" aria-label={`${activeArea.name} objects`}>
             {activeArea.objects.map((object) => (
               <button

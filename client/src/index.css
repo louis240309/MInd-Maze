@@ -439,8 +439,9 @@ a {
 .case-board-card.scene { border: 2px solid #a14856; }
 .case-image-lightbox { position: fixed; inset: 0; z-index: 1000; display: grid; place-content: center; justify-items: center; gap: 12px; padding: 24px; background: rgba(7, 9, 13, .92); }
 .case-image-lightbox-art { width: min(88vw, 900px); height: min(68vh, 620px); border: 1px solid rgba(209, 185, 143, .3); box-shadow: 0 14px 45px rgba(0,0,0,.55); }
-.case-image-lightbox-art .case-visual-placeholder { border-radius: 6px; }
+.case-image-lightbox-art .case-visual-placeholder, .case-image-lightbox-art > img { width: 100%; height: 100%; border-radius: 6px; object-fit: contain; }
 .case-image-lightbox p { color: #f4e7d0; margin: 0; }
+.photo-attribution { max-width: min(88vw, 900px); color: #b8b2a7; text-align: center; font-size: .75rem; line-height: 1.5; }
 .case-lightbox-close { position: fixed; top: 18px; right: 22px; width: 42px; height: 42px; border: 1px solid #777; border-radius: 50%; background: #201e22; color: white; font-size: 28px; cursor: pointer; }
 .case-documents-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 18px; align-items: start; }
 .case-document { min-width: 0; padding: 22px; color: #292720; background: #e8dcc7; border: 1px solid #bcae96; border-radius: 4px; box-shadow: 0 8px 22px rgba(0,0,0,.22); overflow-wrap: anywhere; }
@@ -488,8 +489,13 @@ a {
 .crime-scene-layout { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(280px, .85fr); gap: 16px; align-items: start; }
 .crime-scene-main { min-width: 0; }
 .crime-scene-art { position: relative; overflow: hidden; aspect-ratio: 4 / 3; min-height: 260px; border: 1px solid rgba(196, 166, 132, .35); border-radius: 12px; background: #171d26; box-shadow: 0 10px 24px rgba(0,0,0,.25); }
-.crime-scene-art > .case-visual-placeholder { position: absolute; inset: 0; }
-.crime-scene-hotspot { position: absolute; z-index: 1; display: grid; place-items: center; width: 38px; height: 38px; padding: 0; border: 2px solid #f4d28d; border-radius: 50%; background: rgba(112, 28, 47, .88); color: #fff3d4; cursor: pointer; transform: translate(-50%, -50%); box-shadow: 0 2px 12px rgba(0,0,0,.5); transition: transform .16s ease, background .16s ease, border-color .16s ease; }
+.crime-scene-art > .case-visual-placeholder { position: absolute; z-index: 0; inset: 0; }
+.crime-scene-photo { position: absolute; z-index: 1; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity .25s ease; }
+.crime-scene-photo.loaded { opacity: 1; }
+.crime-scene-photo-loading { position: absolute; z-index: 3; right: 12px; bottom: 12px; padding: 7px 10px; border: 1px solid rgba(244, 210, 141, .35); border-radius: 7px; background: rgba(8, 12, 19, .82); color: #f4e7d0; font-size: .75rem; pointer-events: none; }
+.crime-scene-photo-caption { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 5px 14px; padding: 8px 3px 0; color: var(--text-muted); font-size: .72rem; line-height: 1.5; }
+.crime-scene-photo-caption a, .photo-attribution a { color: #d7bd93; text-decoration: underline; text-underline-offset: 2px; }
+.crime-scene-hotspot { position: absolute; z-index: 2; display: grid; place-items: center; width: 38px; height: 38px; padding: 0; border: 2px solid #f4d28d; border-radius: 50%; background: rgba(112, 28, 47, .88); color: #fff3d4; cursor: pointer; transform: translate(-50%, -50%); box-shadow: 0 2px 12px rgba(0,0,0,.5); transition: transform .16s ease, background .16s ease, border-color .16s ease; }
 .crime-scene-hotspot span { position: absolute; right: -3px; bottom: -5px; min-width: 15px; padding: 1px 3px; border-radius: 8px; background: #10141b; color: #f4e7d0; font: 700 .58rem var(--font-mono); }
 .crime-scene-hotspot:hover, .crime-scene-hotspot:focus-visible { z-index: 2; transform: translate(-50%, -50%) scale(1.12); outline: 2px solid #fff; outline-offset: 3px; }
 .crime-scene-hotspot.selected { border-color: #fff; background: #8b3040; box-shadow: 0 0 0 5px rgba(255,255,255,.13), 0 2px 12px rgba(0,0,0,.5); }
