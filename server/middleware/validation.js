@@ -61,6 +61,11 @@ export const dictionaryLookupSchema = z.object({
   context: z.string().trim().max(280).optional().default(""),
 });
 
+export const sceneInspectionSchema = z.object({
+  object_id: z.string().regex(/^(object_[1-9]|legacy_object_[1-9])$/),
+  action: z.enum(["inspect", "closer"]),
+});
+
 export const updateProfileSchema = z.object({
   name: z.string().trim().min(2, "Name must be at least 2 characters").max(60, "Name cannot exceed 60 characters"),
 });

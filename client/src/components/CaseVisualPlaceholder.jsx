@@ -4,6 +4,8 @@ const themeLabels = {
   mansion: "MANOR ARCHIVE",
   museum: "MUSEUM ARCHIVE",
   hotel: "HOTEL ARCHIVE",
+  school: "SCHOOL ARCHIVE",
+  office: "OFFICE ARCHIVE",
   cyberpunk: "CITY ARCHIVE",
   classic: "CASE ARCHIVE",
 };
@@ -41,6 +43,20 @@ const SceneArtwork = ({ themeKey }) => {
     <path className="art-frame" d="M232 96h68v54h-68zM240 104h52v38h-52z" />
     <path className="art-furniture" d="M175 178h142v59H175zM165 195h162v42H165zM179 179h48v27h-48z" />
     <path className="art-lamp" d="M178 178h-30v-49h30l-7 29h-16m8 20v58m-21 0h43" />
+    <path className="art-wood" d="M49 246h303v19H49z" />
+  </>;
+  if (themeKey === "school") return <>
+    <path className="art-wall" d="M48 246V79h304v167z" />
+    <path className="art-board" d="M82 100h136v74H82zM92 110h116v54H92z" />
+    <path className="art-ink" d="m105 132 22 17 31-31m10 33h28" />
+    <path className="art-furniture" d="M232 180h79v15h-79zm8 15v43m63-43v43M92 204h91v13H92zm8 13v25m75-25v25" />
+    <path className="art-wood" d="M49 246h303v19H49z" />
+  </>;
+  if (themeKey === "office") return <>
+    <path className="art-wall" d="M48 246V79h304v167z" />
+    <path className="art-window" d="M73 100h75v90H73zM82 109h57v72H82zM111 109v72m-29-36h57" />
+    <path className="art-frame" d="M244 98h72v52h-72zM252 106h56v36h-56z" />
+    <path className="art-furniture" d="M159 170h171v19H159zm11 19v39m148-39v39M168 230h152v10H168z" />
     <path className="art-wood" d="M49 246h303v19H49z" />
   </>;
   if (themeKey === "cyberpunk") return <>

@@ -67,7 +67,7 @@ export const ClueCard = ({ clue, index }) => {
             fontFamily: "var(--font-mono)",
           }}
         >
-          CLUE #{index + 1}
+          {clue.id ? `EVIDENCE ID · ${clue.id}` : `CLUE #${index + 1}`}
         </span>
 
         <span
@@ -79,7 +79,7 @@ export const ClueCard = ({ clue, index }) => {
             fontSize: "0.725rem",
           }}
         >
-          <IconComponent size={12} /> {meta.label}
+          <IconComponent size={12} /> {clue.important ? `Important Evidence · ${meta.label}` : meta.label}
         </span>
       </div>
 
@@ -120,6 +120,12 @@ export const ClueCard = ({ clue, index }) => {
           <DictionaryText>{clue.relevance}</DictionaryText>
         </p>
       </div>
+      {clue.related_suspects?.length > 0 && (
+        <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "0.8rem" }}>
+          <strong style={{ color: "var(--text-main)" }}>People connected to this clue:</strong>{" "}
+          <DictionaryText>{clue.related_suspects.map(({ name }) => name).join(", ")}</DictionaryText>
+        </p>
+      )}
     </div>
   );
 };

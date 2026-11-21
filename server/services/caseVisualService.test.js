@@ -44,6 +44,24 @@ test("museum and hotel cases receive theme-specific scene references", () => {
   assert.match(hotelAssets[0].name, /Hotel interior/);
 });
 
+test("school and office cases receive matching local scene illustrations", () => {
+  const schoolAssets = buildCaseVisualAssets({
+    id: "school-case",
+    title: "The Missing Exam",
+    story: "A teacher found a missing paper in a school classroom.",
+  });
+  const officeAssets = buildCaseVisualAssets({
+    id: "office-case",
+    title: "The Boardroom File",
+    story: "A company file vanished from an office meeting room.",
+  });
+
+  assert.equal(schoolAssets[0].theme_key, "school");
+  assert.match(schoolAssets[0].name, /School classroom/);
+  assert.equal(officeAssets[0].theme_key, "office");
+  assert.match(officeAssets[0].name, /Office meeting room/);
+});
+
 test("legacy cases without optional visual fields still get local scene art", () => {
   const assets = buildCaseVisualAssets({ id: "legacy-case", title: "Old Case" });
 

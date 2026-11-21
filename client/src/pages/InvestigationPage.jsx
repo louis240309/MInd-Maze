@@ -9,6 +9,8 @@ import { StatusBadge } from "../components/StatusBadge";
 import { DifficultyBadge } from "../components/DifficultyBadge";
 import { CaseVisualPlaceholder } from "../components/CaseVisualPlaceholder";
 import { CaseDocuments } from "../components/CaseDocuments";
+import { CrimeSceneExplorer } from "../components/CrimeSceneExplorer";
+import { EvidenceQuestionPanel } from "../components/EvidenceQuestionPanel";
 import { DictionaryButton, DictionaryProvider, DictionaryText } from "../components/DetectiveDictionary";
 import {
   ArrowLeft,
@@ -29,6 +31,8 @@ const CLIENT_THEME_PATTERNS = [
   ["mansion", /\b(mansion|manor|estate|victorian|gothic|castle)\b/i],
   ["museum", /\b(museum|gallery|exhibit|exhibition|artifact|curator)\b/i],
   ["hotel", /\b(hotel|inn|resort|suite|lobby|room service)\b/i],
+  ["school", /\b(school|classroom|teacher|student|campus|principal)\b/i],
+  ["office", /\b(office|workplace|boardroom|meeting room|company|executive)\b/i],
   ["cyberpunk", /\b(cyberpunk|neon|android|robot|orbital|space station|data center)\b/i],
 ];
 const CLIENT_EVIDENCE_PATTERNS = [
@@ -41,6 +45,9 @@ const CLIENT_EVIDENCE_PATTERNS = [
   ["jewelry", /\b(jewel|ring|necklace|diamond|ornament)\b/i],
 ];
 
+const evidenceMotifFor = (clue) => CLIENT_EVIDENCE_PATTERNS
+  .find(([, pattern]) => pattern.test(`${clue.name || ""} ${clue.description || ""} ${clue.type || ""}`))?.[0] || "evidence";
+
 const fallbackVisualAssets = (game) => {
   const context = `${game.title || ""} ${game.story || ""}`;
   const themeKey = CLIENT_THEME_PATTERNS.find(([, pattern]) => pattern.test(context))?.[0] || "classic";
@@ -52,7 +59,7 @@ const fallbackVisualAssets = (game) => {
       id: `local:evidence:${index}`,
       asset_type: "evidence",
       theme_key: themeKey,
-      motif: CLIENT_EVIDENCE_PATTERNS.find(([, pattern]) => pattern.test(`${clue.name || ""} ${clue.description || ""} ${clue.type || ""}`))?.[0] || "evidence",
+      motif: evidenceMotifFor(clue),
       related_id: clue.id || null,
       asset_key: `evidence_${clue.id || index + 1}`,
       name: clue.name,
@@ -97,8 +104,14 @@ export const InvestigationPage = () => {
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState("Overview");
   const [visuals, setVisuals] = useState({ status: "not_started", error: null, assets: [] });
-  const [visualError, setVisualError] = useState("");
   const [selectedImage, setSelectedImage] = useState(null);
+  const [crimeScene, setCrimeScene] = useState(null);
+  const [isLoadingScene, setIsLoadingScene] = useState(true);
+  const [sceneError, setSceneError] = useState("");
+  const [sceneActionError, setSceneActionError] = useState("");
+  const [sceneActionMessage, setSceneActionMessage] = useState("");
+  const [isInspectingScene, setIsInspectingScene] = useState(false);
+  const [questionEvidenceId, setQuestionEvidenceId] = useState("");
 
   // Edit title state
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -140,10 +153,12 @@ export const InvestigationPage = () => {
     try {
       const response = await api.get(`/games/${id}/visuals`);
       setVisuals(response.data.visuals);
-      setVisualError("");
       return response.data.visuals?.status;
     } catch (err) {
-      setVisualError(err.response?.data?.message || "Visual case files are not available yet.");
+      setVisuals((previous) => ({
+        ...previous,
+        error: err.response?.data?.message || "Visual case files are not available yet.",
+      }));
       return "error";
     }
   }, [id]);
@@ -151,6 +166,57 @@ export const InvestigationPage = () => {
   useEffect(() => {
     fetchVisuals();
   }, [fetchVisuals]);
+
+  const fetchCrimeScene = useCallback(async () => {
+    try {
+      setIsLoadingScene(true);
+      setSceneError("");
+      const response = await api.get(`/games/${id}/scene`);
+      setCrimeScene(response.data.scene);
+    } catch (err) {
+      setSceneError(err.response?.data?.message || "Could not load this crime scene.");
+    } finally {
+      setIsLoadingScene(false);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    fetchCrimeScene();
+  }, [fetchCrimeScene]);
+
+  const handleInspectSceneObject = async (object, action) => {
+    if (isInspectingScene) return;
+    try {
+      setIsInspectingScene(true);
+      setSceneActionError("");
+      setSceneActionMessage("");
+      const response = await api.post(`/games/${id}/scene/inspect`, {
+        object_id: object.id,
+        action,
+      });
+      setCrimeScene(response.data.scene);
+      setSceneActionMessage(response.data.message || "");
+      if (response.data.evidence) {
+        setGame((previous) => ({
+          ...previous,
+          clues: Array.from(new Map([
+            ...(previous?.clues || []),
+            response.data.evidence,
+          ].map((clue) => [clue.id, clue])).values()),
+        }));
+        await fetchVisuals();
+      }
+    } catch (err) {
+      setSceneActionError(err.response?.data?.message || "Could not inspect this object. Please try again.");
+    } finally {
+      setIsInspectingScene(false);
+    }
+  };
+
+  const handleUseEvidence = (clue) => {
+    setQuestionEvidenceId(clue.id);
+    setActiveTab("Suspects");
+  };
 
   // Request Hint Handler
   const handleRequestHint = async () => {
@@ -305,9 +371,22 @@ export const InvestigationPage = () => {
     );
   }
 
+  const caseClues = Array.from(new Map([
+    ...(game.clues || []),
+    ...(crimeScene?.evidence || []),
+  ].map((clue) => [clue.id, clue])).values());
+  const localVisualAssets = fallbackVisualAssets({ ...game, clues: caseClues });
+  const caseVisualAssets = visuals.assets.length
+    ? [
+      ...visuals.assets,
+      ...localVisualAssets.filter((asset) =>
+        asset.asset_type === "evidence" &&
+        !visuals.assets.some((saved) => saved.asset_type === "evidence" && saved.related_id === asset.related_id)
+      ),
+    ]
+    : localVisualAssets;
   const isSolved = game.status === "solved";
   const isArchived = game.status === "archived";
-  const caseVisualAssets = visuals.assets.length ? visuals.assets : fallbackVisualAssets(game);
   const culpritId = isSolved
     ? game.solution?.match(/^Guilty suspect:\s*(suspect_[123])\s*[-—–:]/i)?.[1]
     : null;
@@ -512,18 +591,25 @@ export const InvestigationPage = () => {
         </>}
 
         {activeTab === "Crime Scene" && <section className="case-file-panel">
-          <h2 className="case-section-title"><Camera size={22} /> Crime scene &amp; locations</h2>
-          <p className="case-file-caption">Original, locally rendered illustrations matched to this case theme.</p>
-          {visualError && <p className="case-visual-alert" role="status">{visualError} Local case artwork is shown instead.</p>}
-          {visuals.error && <p className="case-visual-alert" role="status">{visuals.error}</p>}
-          {caseVisualAssets.filter((asset) => asset.asset_type === "crime_scene").length ? <div className="case-visual-grid">{caseVisualAssets.filter((asset) => asset.asset_type === "crime_scene").map((asset) => <article className="case-visual-card" key={asset.id}><VisualImage asset={asset} onOpen={setSelectedImage} /><div className="case-visual-card-copy"><span className="evidence-stamp">SCENE FILE</span><h3>{asset.name}</h3><p>{asset.description}</p></div></article>)}</div> : <EmptyVisualState text={visualError || "Scene illustrations are not available for this case."} />}
+          <h2 className="case-section-title"><Camera size={22} /> Crime scene exploration</h2>
+          <CrimeSceneExplorer
+            scene={crimeScene}
+            isLoading={isLoadingScene}
+            error={sceneError}
+            isInspecting={isInspectingScene}
+            actionMessage={sceneActionMessage}
+            actionError={sceneActionError}
+            onInspect={handleInspectSceneObject}
+            onZoom={setSelectedImage}
+            onUseEvidence={handleUseEvidence}
+          />
         </section>}
 
         {activeTab === "Evidence Gallery" && <section className="case-file-panel">
           <h2 className="case-section-title"><Search size={22} /> Evidence gallery</h2>
-          <p className="case-file-caption">Filed evidence is available at case opening. Compare each item with the statements.</p>
+          <p className="case-file-caption">Collected evidence appears here. Compare each item with the suspects&apos; statements.</p>
           {visuals.error && <p className="case-visual-alert" role="status">{visuals.error}</p>}
-          {(game.clues || []).length ? <div className="case-visual-grid">{game.clues.map((clue, index) => { const asset = caseVisualAssets.find((item) => item.asset_type === "evidence" && (item.related_id === clue.id || item.asset_key === `evidence_${clue.id || index + 1}`)); return <article className="case-evidence-file" key={clue.id || index}><VisualImage asset={asset || { name: clue.name, status: "ready", asset_type: "evidence", theme_key: caseVisualAssets[0]?.theme_key || "classic", motif: "evidence" }} onOpen={setSelectedImage} /><span className="evidence-stamp">{asset?.asset_key || `evidence_${clue.id || index + 1}`}</span>{asset && <small className="evidence-discovery">{asset.discovered_initially ? "Available at case opening" : "Unlocked during investigation"}</small>}<ClueCard clue={clue} index={index} /></article>; })}</div> : <EmptyVisualState text="No evidence has been filed for this case." />}
+          {caseClues.length ? <div className="case-visual-grid">{caseClues.map((clue, index) => { const asset = caseVisualAssets.find((item) => item.asset_type === "evidence" && (item.related_id === clue.id || item.asset_key === `evidence_${clue.id || index + 1}`)); return <article className="case-evidence-file" key={clue.id || index}><VisualImage asset={asset || { name: clue.name, status: "ready", asset_type: "evidence", theme_key: caseVisualAssets[0]?.theme_key || "classic", motif: evidenceMotifFor(clue) }} onOpen={setSelectedImage} /><span className="evidence-stamp">{asset?.asset_key || `evidence_${clue.id || index + 1}`}</span>{clue.discovery_order && <small className="evidence-discovery">Found at {clue.discovery_location || "the scene"} · #{clue.discovery_order}</small>}<ClueCard clue={clue} index={index} /></article>; })}</div> : <EmptyVisualState text="No evidence has been collected yet. Explore the crime scene to find clues." />}
         </section>}
 
         {activeTab === "Suspects" && <>
@@ -565,6 +651,12 @@ export const InvestigationPage = () => {
             })}
           </div>
         </section>
+        <EvidenceQuestionPanel
+          key={questionEvidenceId || "evidence-question"}
+          suspects={game.suspects || []}
+          evidence={caseClues}
+          initialEvidenceId={questionEvidenceId}
+        />
 
         </>}
 
@@ -572,14 +664,14 @@ export const InvestigationPage = () => {
           <h2 className="case-section-title"><FileText size={22} /> Investigation board</h2>
           <p className="case-file-caption">Compare the scene, suspects, and clues. You decide how they connect.</p>
           {visuals.error && <p className="case-visual-alert" role="status">{visuals.error}</p>}
-          {(caseVisualAssets.length || game.suspects?.length || game.clues?.length) ? <div className="case-board">
+          {(caseVisualAssets.length || game.suspects?.length || caseClues.length) ? <div className="case-board">
             {(caseVisualAssets.filter((asset) => asset.asset_type === "crime_scene")).map((asset) => <article className="case-board-card scene" key={asset.id}><VisualImage asset={asset} onOpen={setSelectedImage} /><h3>{asset.name}</h3></article>)}
             {(game.suspects || []).map((suspect, index) => { const portrait = caseVisualAssets.find((asset) => asset.asset_type === "suspect" && (asset.related_id === suspect.id || asset.asset_key === `suspect_${suspect.id || index + 1}`)); return <article className="case-board-card" key={suspect.id || index}><VisualImage asset={portrait || { name: suspect.name, status: "ready", asset_type: "suspect", theme_key: caseVisualAssets[0]?.theme_key || "classic", motif: `portrait_${index + 1}` }} onOpen={setSelectedImage} /><h3>{suspect.name}</h3><p>{suspect.role}</p></article>; })}
-            {(game.clues || []).map((clue, index) => { const photo = caseVisualAssets.find((asset) => asset.asset_type === "evidence" && (asset.related_id === clue.id || asset.asset_key === `evidence_${clue.id || index + 1}`)); return <article className="case-board-card evidence" key={clue.id || index}><VisualImage asset={photo || { name: clue.name, status: "ready", asset_type: "evidence", theme_key: caseVisualAssets[0]?.theme_key || "classic", motif: "evidence" }} onOpen={setSelectedImage} /><h3>{clue.name}</h3><p>{clue.description}</p></article>; })}
+            {caseClues.map((clue, index) => { const photo = caseVisualAssets.find((asset) => asset.asset_type === "evidence" && (asset.related_id === clue.id || asset.asset_key === `evidence_${clue.id || index + 1}`)); return <article className="case-board-card evidence" key={clue.id || index}><VisualImage asset={photo || { name: clue.name, status: "ready", asset_type: "evidence", theme_key: caseVisualAssets[0]?.theme_key || "classic", motif: evidenceMotifFor(clue) }} onOpen={setSelectedImage} /><h3>{clue.name}</h3><p>{clue.description}</p></article>; })}
           </div> : <EmptyVisualState text="Your board will fill as the case file is prepared." />}
         </section>}
 
-        {activeTab === "Case Documents" && <CaseDocuments game={game} />}
+        {activeTab === "Case Documents" && <CaseDocuments game={{ ...game, clues: caseClues }} />}
 
         {selectedImage && <div className="case-image-lightbox" role="dialog" aria-modal="true" aria-label={selectedImage.name} onClick={() => setSelectedImage(null)}><button type="button" className="case-lightbox-close" onClick={() => setSelectedImage(null)} aria-label="Close image">×</button><div className="case-image-lightbox-art" onClick={(event) => event.stopPropagation()}><CaseVisualPlaceholder type={selectedImage.asset_type} themeKey={selectedImage.theme_key} motif={selectedImage.motif} /></div><p>{selectedImage.name}</p></div>}
 

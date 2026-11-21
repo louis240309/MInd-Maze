@@ -1,6 +1,11 @@
 import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
 import { randomUUID } from "node:crypto";
+import {
+  CrimeSceneSchema,
+  validateSceneClueLinks,
+  validateSceneMatchesCase,
+} from "./crimeSceneSchema.js";
 
 const SuspectSchema = z.object({
   id: z.string().min(1),
@@ -28,6 +33,7 @@ export const MysteryGenerationSchema = z.object({
   story: z.string().min(100).max(6000),
   suspects: z.array(SuspectSchema).length(3),
   clues: z.array(ClueSchema).length(3),
+  crime_scene: CrimeSceneSchema,
   hints: z.array(z.string().min(5).max(500)).length(3),
   solution: z.string().min(40).max(4000),
 }).superRefine((mystery, context) => {
@@ -36,6 +42,12 @@ export const MysteryGenerationSchema = z.object({
     if (new Set(names).size !== names.length) {
       context.addIssue({ code: "custom", path: [field], message: `All ${field} must have distinct names.` });
     }
+  }
+  for (const message of validateSceneClueLinks(mystery.crime_scene, mystery.clues)) {
+    context.addIssue({ code: "custom", path: ["crime_scene"], message });
+  }
+  if (!validateSceneMatchesCase(mystery.crime_scene, mystery)) {
+    context.addIssue({ code: "custom", path: ["crime_scene", "scene_type"], message: "The scene type must match the case setting." });
   }
 });
 
@@ -108,6 +120,10 @@ export class GeminiService {
     ).join("\n") || "None yet.";
     const basePrompt = `Create a new mystery for the Mind Maze game.\n\nTheme/setting: ${theme}\nDifficulty: ${difficulty} changes how hard the puzzle is, not the story.\nUnique generation identifier: ${generationId}\nRecent cases to avoid: ${recent}\n\nReturn one JSON object with exactly these fields: title, difficulty, story, suspects, clues, hints, solution.\n- Make a new story with a clear place, crime, people, and timeline. Do not copy or slightly change an old story. Make the theme clear.\n- Keep the case safe for a general audience. No graphic violence. The crime may be theft, damage, fraud, or a non-graphic murder.\n- Use exactly three suspects with ids suspect_1, suspect_2, suspect_3. Only one person did the crime. For each person, give a name, fictional adult age as a number, role, short background, relationship to this case, reason, story about where they were, and a first-person statement. Give the two innocent people secrets that are not about this crime. Use new names.\n- Give each suspect a different, clear personality. Their first-person statement should sound natural and conversational, not formal or robotic. Keep each statement true to that person's knowledge and facts. Do not reveal private thoughts, the culprit, or facts the player has not found.\n- Use exactly three clues with ids clue_1, clue_2, clue_3, types physical/forensic/testimony/document, and fields name, description, relevance. At least two clues must work together to show how and when the guilty person did it. Make all facts fit, and give the player all needed facts. Use new clues.\n- Give exactly three hints. Each hint should help more than the last. Do not name the guilty person in a hint.\n- The secret solution must start with this exact text: Guilty suspect: suspect_N — FULL NAME. Use each clue's exact name. Explain how the clues point to the guilty person, where that person's story does not match the facts, and why the other two people are innocent. Do not add new facts.\n- Write all player-facing text at about a 10th-grade reading level. Prefer common, everyday words, short sentences, and active voice. Usually keep sentences under 15 words. Avoid rare words, jargon, idioms, metaphors, formal wording, and long paragraphs. Keep mystery terms when they matter; explain an unfamiliar term in plain English in the same sentence. Do not make the reasoning or clues easier; keep the puzzle challenging through the facts.\n- Keep the story interesting and short (2-4 paragraphs). Set difficulty exactly to ${difficulty}.\n\nJSON shape: {"title":"...","difficulty":"${difficulty}","story":"...","suspects":[{"id":"suspect_1","name":"...","age":34,"role":"...","background":"...","relationship":"...","motive":"...","alibi":"...","statement":"..."},{"id":"suspect_2","name":"...","age":41,"role":"...","background":"...","relationship":"...","motive":"...","alibi":"...","statement":"..."},{"id":"suspect_3","name":"...","age":27,"role":"...","background":"...","relationship":"...","motive":"...","alibi":"...","statement":"..."}],"clues":[{"id":"clue_1","name":"...","type":"physical","description":"...","relevance":"..."},{"id":"clue_2","name":"...","type":"forensic","description":"...","relevance":"..."},{"id":"clue_3","name":"...","type":"document","description":"...","relevance":"..."}],"hints":["...","...","..."],"solution":"Guilty suspect: suspect_N — FULL NAME. ..."}`;
 
+    const scenePrompt = `\n\nAlso include a crime_scene object in the JSON and include it in the exact top-level field list. It must match the generated story and existing clues. Use scene_type mansion, museum, hotel, school, office, cyberpunk, or classic. Include a short name and description, exactly three areas (area_1 to area_3), and exactly three objects in each area. Objects use unique ids object_1 to object_9; categories are furniture, document, container, personal_item, fixture, or other. Give each object whole-number x (8-92) and y (12-88) positions, a short description, inspection_text, and closer_text. All text uses simple English, fits known case facts, and never names the culprit as guilty. Public scene names, area labels, and object names/descriptions must not state any exact clue name; use ordinary labels until closer inspection. Link each clue exactly once using evidence_id: clue_1, clue_2, or clue_3. Set evidence_id to null for ordinary objects. At least one clue must require a different existing clue first using requires_evidence_id. Other objects use requires_evidence_id: null. Do not add clues or facts. Exact shape: crime_scene {name, scene_type, description, areas:[{id,name,description,objects:[{id,name,category,x,y,description,inspection_text,closer_text,evidence_id,requires_evidence_id}]}]}. Each area has exactly three objects.`;
+    const generationPrompt = basePrompt
+      .replace("fields: title, difficulty, story, suspects, clues, hints, solution.", "fields: title, difficulty, story, suspects, clues, crime_scene, hints, solution.")
+      .replace("\n\nJSON shape:", "\n\nBase case JSON shape:");
     let lastError;
     const rejectedCases = [];
     for (let attempt = 0; attempt < 2; attempt += 1) {
@@ -124,8 +140,8 @@ export class GeminiService {
         try {
           const response = await this.ai.models.generateContent({
             model,
-            contents: `${basePrompt}${retryInstruction}\nGeneration attempt: ${attempt + 1}; variation token: ${randomUUID()}`,
-            config: { responseMimeType: "application/json", temperature: 1, maxOutputTokens: 5000 },
+            contents: `${generationPrompt}${scenePrompt}${retryInstruction}\nGeneration attempt: ${attempt + 1}; variation token: ${randomUUID()}`,
+            config: { responseMimeType: "application/json", temperature: 1, maxOutputTokens: 7000 },
           });
           const rawText = response.text?.trim();
           if (!rawText) throw new Error("Gemini returned an empty response.");

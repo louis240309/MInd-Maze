@@ -2,6 +2,8 @@ import { supabase } from "../config/supabase.js";
 import { geminiService } from "./geminiService.js";
 import { randomUUID } from "node:crypto";
 import { caseVisualService } from "./caseVisualService.js";
+import { crimeSceneService } from "./crimeSceneService.js";
+import { hasValidGeneratedScene } from "./crimeSceneSchema.js";
 
 export class GameService {
   static calculatePointsEarned(difficulty, hintCount) {
@@ -18,11 +20,31 @@ export class GameService {
   /**
    * Sanitizes a game object so confidential solutions and unrevealed hints are not leaked
    */
-  static sanitizeGame(game) {
+  static sanitizeGame(game, discoveries = []) {
     if (!game) return null;
     const isSolved = game.status === "solved";
     const revealedHintCount = Math.min(game.hint_count || 0, 3);
     const allHints = Array.isArray(game.hints) ? game.hints : [];
+
+    const evidenceRows = [...discoveries]
+      .filter(({ evidence_id }) => evidence_id)
+      .sort((a, b) => (
+        Date.parse(a.evidence_discovered_at || "") - Date.parse(b.evidence_discovered_at || "") ||
+        String(a.object_id).localeCompare(String(b.object_id))
+      ));
+    const areaNameByObject = new Map(
+      (game.crime_scene?.areas || []).flatMap((area) => area.objects.map(({ id }) => [id, area.name]))
+    );
+    const evidenceById = new Map(evidenceRows.map((row, index) => [row.evidence_id, {
+      discovery_location: areaNameByObject.get(row.object_id) || "Crime scene",
+      discovery_order: index + 1,
+      discovered_at: row.evidence_discovered_at,
+      important: true,
+    }]));
+    const visibleClues = Array.isArray(game.clues) ? game.clues : [];
+    const clues = hasValidGeneratedScene(game) && !isSolved
+      ? visibleClues.filter(({ id }) => evidenceById.has(id)).map((clue) => ({ ...clue, ...evidenceById.get(clue.id) }))
+      : visibleClues;
 
     return {
       id: game.id,
@@ -32,7 +54,7 @@ export class GameService {
       difficulty: game.difficulty,
       story: game.story,
       suspects: game.suspects,
-      clues: game.clues,
+      clues,
       hint_count: revealedHintCount,
       points_earned: game.points_earned || 0,
       // Only include hints up to hint_count
@@ -82,7 +104,12 @@ export class GameService {
       ? (data || []).filter((game) => `${game.title || ""} ${game.story || ""}`.toLocaleLowerCase().includes(searchTerm))
       : data || [];
 
-    return filteredGames.map(GameService.sanitizeGame);
+    const gamesWithScenes = filteredGames.filter(hasValidGeneratedScene);
+    const evidenceByGameId = await crimeSceneService.getDiscoveredEvidenceByGameIds(
+      gamesWithScenes.map(({ id }) => id),
+      userId
+    );
+    return filteredGames.map((game) => GameService.sanitizeGame(game, evidenceByGameId.get(game.id) || []));
   }
 
   /**
@@ -100,7 +127,22 @@ export class GameService {
       return null;
     }
 
-    return GameService.sanitizeGame(data);
+    const discoveriesByGame = hasValidGeneratedScene(data)
+      ? await crimeSceneService.getDiscoveredEvidenceByGameIds([data.id], userId)
+      : new Map();
+    return GameService.sanitizeGame(data, discoveriesByGame.get(data.id) || []);
+  }
+
+  async getCrimeScene(gameId, userId) {
+    const game = await this._getRawGame(gameId, userId);
+    if (!game) return null;
+    return crimeSceneService.getScene(game, userId);
+  }
+
+  async inspectCrimeSceneObject(gameId, userId, objectId, action) {
+    const game = await this._getRawGame(gameId, userId);
+    if (!game) return null;
+    return crimeSceneService.inspectObject(game, userId, objectId, action);
   }
 
   /**
@@ -154,6 +196,7 @@ export class GameService {
       story: mystery.story,
       suspects: mystery.suspects,
       clues: mystery.clues,
+      crime_scene: mystery.crime_scene,
       hints: mystery.hints,
       solution: mystery.solution,
       hint_count: 0,
@@ -203,7 +246,10 @@ export class GameService {
       throw new Error("Failed to update case.");
     }
 
-    return GameService.sanitizeGame(data);
+    const evidenceByGame = hasValidGeneratedScene(data)
+      ? await crimeSceneService.getDiscoveredEvidenceByGameIds([data.id], userId)
+      : new Map();
+    return GameService.sanitizeGame(data, evidenceByGame.get(data.id) || []);
   }
 
   /**

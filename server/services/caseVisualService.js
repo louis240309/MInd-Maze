@@ -5,6 +5,8 @@ const themePatterns = [
   { key: "mansion", pattern: /\b(mansion|manor|estate|victorian|gothic|castle)\b/i },
   { key: "museum", pattern: /\b(museum|gallery|exhibit|exhibition|artifact|curator)\b/i },
   { key: "hotel", pattern: /\b(hotel|inn|resort|suite|lobby|room service)\b/i },
+  { key: "school", pattern: /\b(school|classroom|teacher|student|campus|principal)\b/i },
+  { key: "office", pattern: /\b(office|workplace|boardroom|meeting room|company|executive)\b/i },
   { key: "cyberpunk", pattern: /\b(cyberpunk|neon|android|robot|orbital|space station|data center)\b/i },
 ];
 
@@ -38,6 +40,8 @@ export function buildCaseVisualAssets(game) {
     mansion: "Manor interior",
     museum: "Exhibition gallery",
     hotel: "Hotel interior",
+    school: "School classroom",
+    office: "Office meeting room",
     cyberpunk: "Neon-lit facility",
     classic: "Investigation scene",
   }[theme_key];

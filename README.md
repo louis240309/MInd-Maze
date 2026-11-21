@@ -1,6 +1,6 @@
 # MindMaze — AI-Powered Mystery Investigation Game
 
-MindMaze is a full-stack detective game powered by generative AI. Step into the role of a consulting detective examining procedurally generated criminal investigations. Every case is uniquely generated with a triad of suspects, three cryptographic clues, progressive hints, and a secret solution encrypted until solved.
+MindMaze is a full-stack detective game powered by generative AI. Step into the role of a consulting detective examining procedurally generated criminal investigations. Every case has three suspects, three clues, progressive hints, a case-specific crime scene, and a secret solution kept out of player responses until solved.
 
 ---
 
@@ -14,23 +14,24 @@ MindMaze is a full-stack detective game powered by generative AI. Step into the 
 
 - **AI Mystery Generation (Backend-Only via Gemini)**
   - Powered by Google Gemini using the `@google/genai` SDK.
-  - Generates 3 suspects (with motives, alibis, and interrogation statements) and 3 clues (physical, forensic, documentary, or testimonial).
+  - Generates 3 suspects, 3 clues, and a matching scene with 3 locations and 9 clickable objects.
   - Validates AI responses against strict Zod schemas.
   - Secret solutions and unearned hints are never exposed through API responses before solving.
   - Live Gemini generation is required to open a new case; temporary provider failures return a retryable error instead of a sample case.
 
 - **Interactive Investigation Gameplay**
-  - **Crime Scene Dossier**: Atmospheric incident report detailing the crime scene.
-  - **Suspect Interrogations**: Review statements and select suspects directly to accuse.
-  - **Forensic Evidence Locker**: Examine clues, timestamps, and physical descriptions.
+  - **Crime Scene Exploration**: Inspect illustrated locations, examine objects, and reveal clues through closer inspection.
+  - **Evidence Locker**: Collect clues from the scene and keep their discovery location and order with the existing case evidence.
+  - **Evidence Questions**: Compare collected clues with each suspect's recorded statement without adding new case facts.
+  - **Suspect Profiles**: Review statements and select suspects directly to accuse.
   - **Forensic Hint System**: Unlock up to 3 progressive hints to assist deductive analysis.
   - **Accusation Console**: Formally indict suspects and explain deduction to receive immediate forensic evaluation.
 
-- **AI Visual Case Files**
-  - Generates case-specific scene photographs, evidence images, and fictional suspect portraits through Gemini's image model.
-  - Presents a visual evidence gallery, suspect files, image viewer, and investigation board while keeping clues and accusations playable if images are unavailable.
-  - Stores image metadata in PostgreSQL and image files in a private Supabase Storage bucket; owner-checked API routes issue expiring image links.
-  - Image generation runs after a case is saved. It requires image-model quota/billing; image failures do not discard the mystery.
+- **Free Visual Case Files**
+  - Uses original, locally rendered SVG art for scenes and evidence; it makes no paid image-generation requests or external image downloads.
+  - Shows an interactive illustrated room with clickable object markers, zoom, inspection notes, and case-specific document layouts.
+  - Reuses the existing evidence gallery, suspect profiles, investigation board, and documents.
+  - Older cases keep their original clues and receive a harmless background scene for exploration.
 
 - **Case Management & Dashboard**
   - View real-time statistics: total cases, active investigations, solved cases, and accuracy rate.
@@ -80,9 +81,11 @@ GEMINI_API_KEY=your-gemini-api-key
 GEMINI_MODEL=gemini-3.5-flash-lite # Optional primary model; server tries supported fallbacks
 ```
 
-Visual investigation artwork is original inline SVG rendered locally from each case's theme and evidence. Case reports, suspect dossiers, newspaper clippings, and narrative chronology are composed from the saved case data in the client. This feature makes no image-generation API calls, uses no third-party image assets, and requires no visual-assets migration or storage-bucket configuration. Gemini remains configured only for text-based mystery generation and evaluation.
+Crime scene details are included in the existing Gemini text-generation request and stored in `games.crime_scene`. Object examinations and collected clue references are saved in `game_scene_discoveries`. The server checks case ownership and discovery requirements, and does not send locked clue details to the browser. Older cases without scene data keep their existing evidence and receive a local background scene.
 
-The in-case Detective Dictionary includes local definitions for common mystery terms. Unknown words can be looked up through the existing Gemini text client. The server checks that any sentence sent as context is already visible in the player's case, sends only that short sentence and the requested word, and keeps successful explanations in a bounded in-memory cache. No new environment variables or database migration are needed.
+Scene and evidence artwork uses original inline SVG. No image-generation API, third-party image assets, new environment variables, or storage bucket is needed. The current case report, suspect profile, evidence gallery, and investigation board are reused. The suspect evidence-question panel compares clues with the recorded statement; it does not make an extra AI request or invent a new response.
+
+The in-case Detective Dictionary includes local definitions for common mystery terms. Unknown words can be looked up through the existing Gemini text client. The server checks that any sentence sent as context is already visible in the player's case, sends only that short sentence and the requested word, and keeps successful explanations in a bounded in-memory cache.
 
 Start the backend:
 ```bash
@@ -124,7 +127,7 @@ If you configure the service manually, use:
 
 Set `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, and `GEMINI_API_KEY` in the Render environment. The build command must be `npm run build` within `client/`; never use `npm build` at the repository root.
 
-Apply new SQL files in `supabase/migrations/` to the Supabase project before deploying backend changes that use new database columns.
+Apply [20261121210000_interactive_crime_scenes.sql](./supabase/migrations/20261121210000_interactive_crime_scenes.sql) to Supabase before deploying this feature. It adds the `crime_scene` JSONB column and the private `game_scene_discoveries` table. No new Render variables or storage setup are required.
 
 ---
 

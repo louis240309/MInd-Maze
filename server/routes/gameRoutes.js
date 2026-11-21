@@ -1,12 +1,13 @@
 import express from "express";
 import { authenticateUser } from "../middleware/auth.js";
-import { dictionaryLimiter, gameGenLimiter } from "../middleware/rateLimiter.js";
+import { dictionaryLimiter, gameGenLimiter, sceneInspectionLimiter } from "../middleware/rateLimiter.js";
 import {
   validateBody,
   createGameSchema,
   updateGameSchema,
   solveGameSchema,
   dictionaryLookupSchema,
+  sceneInspectionSchema,
 } from "../middleware/validation.js";
 import { gameService } from "../services/gameService.js";
 import { caseVisualService } from "../services/caseVisualService.js";
@@ -104,6 +105,39 @@ router.post("/:id/visuals/retry", async (req, res, next) => {
     res.json({ success: true, message: "Free case visuals are ready.", visuals });
   } catch (error) { next(error); }
 });
+
+router.get("/:id/scene", async (req, res, next) => {
+  try {
+    const scene = await gameService.getCrimeScene(req.params.id, req.user.id);
+    if (!scene) return res.status(404).json({ success: false, message: "Case not found." });
+    res.set("Cache-Control", "no-store");
+    res.json({ success: true, scene });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post(
+  "/:id/scene/inspect",
+  sceneInspectionLimiter,
+  validateBody(sceneInspectionSchema),
+  async (req, res, next) => {
+    try {
+      const { object_id, action } = req.validatedBody;
+      const result = await gameService.inspectCrimeSceneObject(
+        req.params.id,
+        req.user.id,
+        object_id,
+        action
+      );
+      if (!result) return res.status(404).json({ success: false, message: "Case not found." });
+      res.set("Cache-Control", "no-store");
+      res.json({ success: true, ...result });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 
 /**
  * GET /api/games/:id

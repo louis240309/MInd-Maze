@@ -35,6 +35,14 @@ export const dictionaryLimiter = rateLimit({
   },
 });
 
+export const sceneInspectionLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: "Too many scene inspections. Wait a moment and try again." },
+});
+
 // General API rate limiter
 export const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
