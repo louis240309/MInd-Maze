@@ -137,13 +137,18 @@ export class GeminiService {
       const modelsToTry = attempt === 0 ? models : models.slice(0, 1);
       for (const model of modelsToTry) {
         let candidateReceived = false;
+        let responseMetadata = {};
         try {
           const response = await this.ai.models.generateContent({
             model,
             contents: `${generationPrompt}${scenePrompt}${retryInstruction}\nGeneration attempt: ${attempt + 1}; variation token: ${randomUUID()}`,
-            config: { responseMimeType: "application/json", temperature: 1, maxOutputTokens: 7000 },
+            config: { responseMimeType: "application/json", temperature: 1, maxOutputTokens: 8192 },
           });
           const rawText = response.text?.trim();
+          responseMetadata = {
+            finishReason: response.candidates?.[0]?.finishReason || null,
+            responseLength: rawText?.length || 0,
+          };
           if (!rawText) throw new Error("Gemini returned an empty response.");
           candidateReceived = true;
           const mystery = MysteryGenerationSchema.parse(JSON.parse(cleanJson(rawText)));
@@ -200,6 +205,7 @@ export class GeminiService {
                 : error.status || error.statusCode || error.code
                   ? "Gemini API request failed"
                   : String(error.message || "Unknown error").slice(0, 180),
+            ...responseMetadata,
           });
         }
       }

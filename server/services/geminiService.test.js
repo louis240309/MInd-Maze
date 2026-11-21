@@ -94,6 +94,31 @@ test("three theme samples preserve the facts and follow a simple-English prompt"
   assert.ok(prompts.every((prompt) => /crime_scene object/i.test(prompt)));
 });
 
+test("case generation retries malformed JSON and allows a larger structured response", async () => {
+  let calls = 0;
+  const service = Object.assign(Object.create(GeminiService.prototype), {
+    apiKey: "test-key",
+    recentCases: [],
+    ai: {
+      models: {
+        generateContent: async ({ config }) => {
+          calls += 1;
+          assert.equal(config.maxOutputTokens, 8192);
+          return {
+            text: calls === 1 ? '{"incomplete":' : JSON.stringify(sampleCase("Mansion", 1)),
+            candidates: [{ finishReason: calls === 1 ? "MAX_TOKENS" : "STOP" }],
+          };
+        },
+      },
+    },
+  });
+
+  const generated = await service.generateMystery({ theme: "Mansion", difficulty: "medium", generationId: "retry-test" });
+
+  assert.equal(generated.title, "Mansion Mystery 1");
+  assert.equal(calls, 2);
+});
+
 test("unknown word explanations send only the word and selected context in one call", async () => {
   let request;
   const service = Object.assign(Object.create(GeminiService.prototype), {

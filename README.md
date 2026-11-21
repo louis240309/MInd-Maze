@@ -121,6 +121,7 @@ Visit [http://localhost:5173](http://localhost:5173) in your browser.
 
 Deploy this repository from [render.yaml](./render.yaml) as a Render Blueprint, with the repository root as the service root directory. It configures one Node.js web service that builds the React client and serves it together with the Express API. The build installs the server and client dependencies, builds `client/dist`, and fails unless `client/dist/index.html` exists.
 The deployed API is available at [https://mind-maze-9nxv.onrender.com](https://mind-maze-9nxv.onrender.com). The frontend uses `VITE_API_URL` when set and otherwise defaults to this API; the `/api` suffix is added if omitted. In Vercel, set `VITE_API_URL` to `https://mind-maze-9nxv.onrender.com/api`. In Render, set `CLIENT_URL` to `https://m-ind-maze.vercel.app` so browser requests pass CORS checks.
+The Express server trusts the single Render proxy hop so `express-rate-limit` can key requests by the forwarded client IP; it does not trust arbitrary proxy chains.
 
 If you configure the service manually, use:
 - **Root Directory:** repository root

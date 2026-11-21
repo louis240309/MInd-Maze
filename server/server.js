@@ -18,6 +18,9 @@ dotenv.config();
 console.info(`[MindMaze] Unsplash photo lookup: ${scenePhotoService.isConfigured() ? "configured" : "not configured; using SVG scenes"}.`);
 const app = express();
 
+// Render places one trusted proxy in front of the service and forwards the client IP.
+app.set("trust proxy", 1);
+
 // Security headers with Helmet. Unsplash images are served directly from its CDN.
 app.use(helmet({
   contentSecurityPolicy: {
