@@ -51,6 +51,69 @@ export const MysteryGenerationSchema = z.object({
   }
 });
 
+const jsonObject = (properties) => ({
+  type: "object",
+  properties,
+  required: Object.keys(properties),
+  additionalProperties: false,
+  propertyOrdering: Object.keys(properties),
+});
+const jsonString = { type: "string" };
+const clueIds = ["clue_1", "clue_2", "clue_3"];
+const suspectResponseSchema = jsonObject({
+  id: { type: "string", enum: ["suspect_1", "suspect_2", "suspect_3"] },
+  name: jsonString,
+  age: { type: "integer", minimum: 18, maximum: 100 },
+  role: jsonString,
+  background: jsonString,
+  relationship: jsonString,
+  motive: jsonString,
+  alibi: jsonString,
+  statement: jsonString,
+});
+const clueResponseSchema = jsonObject({
+  id: { type: "string", enum: clueIds },
+  name: jsonString,
+  type: { type: "string", enum: ["physical", "forensic", "testimony", "document"] },
+  description: jsonString,
+  relevance: jsonString,
+});
+const sceneObjectResponseSchema = jsonObject({
+  id: { type: "string", enum: Array.from({ length: 9 }, (_, index) => `object_${index + 1}`) },
+  name: jsonString,
+  category: { type: "string", enum: ["furniture", "document", "container", "personal_item", "fixture", "other"] },
+  x: { type: "integer", minimum: 8, maximum: 92 },
+  y: { type: "integer", minimum: 12, maximum: 88 },
+  description: jsonString,
+  inspection_text: jsonString,
+  closer_text: jsonString,
+  evidence_id: { anyOf: [{ type: "string", enum: clueIds }, { type: "null" }] },
+  requires_evidence_id: { anyOf: [{ type: "string", enum: clueIds }, { type: "null" }] },
+});
+const sceneAreaResponseSchema = jsonObject({
+  id: { type: "string", enum: ["area_1", "area_2", "area_3"] },
+  name: jsonString,
+  description: jsonString,
+  objects: { type: "array", minItems: 3, maxItems: 3, items: sceneObjectResponseSchema },
+});
+const crimeSceneResponseSchema = jsonObject({
+  name: jsonString,
+  scene_type: { type: "string", enum: ["mansion", "museum", "hotel", "school", "office", "cyberpunk", "classic"] },
+  description: jsonString,
+  areas: { type: "array", minItems: 3, maxItems: 3, items: sceneAreaResponseSchema },
+});
+
+export const MysteryResponseJsonSchema = jsonObject({
+  title: jsonString,
+  difficulty: { type: "string", enum: ["easy", "medium", "hard"] },
+  story: jsonString,
+  suspects: { type: "array", minItems: 3, maxItems: 3, items: suspectResponseSchema },
+  clues: { type: "array", minItems: 3, maxItems: 3, items: clueResponseSchema },
+  crime_scene: crimeSceneResponseSchema,
+  hints: { type: "array", minItems: 3, maxItems: 3, items: jsonString },
+  solution: jsonString,
+});
+
 const models = [...new Set([
   process.env.GEMINI_MODEL,
   "gemini-3.5-flash-lite",
@@ -59,7 +122,20 @@ const models = [...new Set([
   "gemini-3.8-flash",
 ].filter(Boolean))];
 
-const cleanJson = (text) => text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+const extractJsonText = (text) => {
+  const trimmed = text.replace(/^\uFEFF/, "").trim();
+  const fenced = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  return fenced ? fenced[1].trim() : trimmed;
+};
+const isIncompleteJsonError = (error) => /unexpected end|unterminated string/i.test(error.message || "");
+const isTransientProviderFailure = (error) =>
+  [408, 429, 500, 502, 503, 504].includes(Number(error?.status || error?.statusCode)) ||
+  ["UNAVAILABLE", "RESOURCE_EXHAUSTED"].includes(error?.code);
+const isUnavailableModelError = (error) =>
+  Number(error?.status || error?.statusCode) === 404 ||
+  error?.code === "NOT_FOUND" ||
+  /model.{0,50}(not found|unsupported|unavailable)/i.test(error?.message || "");
+const delay = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 const normalize = (text = "") => text.toLocaleLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
 const significantWords = (text = "") => new Set(normalize(text).split(" ").filter((word) => word.length > 4));
 const wordSimilarity = (left, right) => {
@@ -92,6 +168,50 @@ const duplicateOfRecentCase = (mystery, prior) => {
   });
 };
 
+export function validateGeneratedMystery(value, difficulty) {
+  const parsed = MysteryGenerationSchema.safeParse(value);
+  if (!parsed.success) {
+    return {
+      success: false,
+      validationPaths: [...new Set(parsed.error.issues.map(({ path }) => path.join(".") || "case"))],
+    };
+  }
+
+  const mystery = parsed.data;
+  const validationPaths = [];
+  if (mystery.difficulty !== difficulty) validationPaths.push("difficulty");
+
+  const suspectIds = new Set(mystery.suspects.map(({ id }) => id));
+  if (suspectIds.size !== 3 || !["suspect_1", "suspect_2", "suspect_3"].every((id) => suspectIds.has(id))) {
+    validationPaths.push("suspects.id");
+  }
+  const caseClueIds = new Set(mystery.clues.map(({ id }) => id));
+  if (caseClueIds.size !== 3 || !clueIds.every((id) => caseClueIds.has(id))) {
+    validationPaths.push("clues.id");
+  }
+  const culpritMarker = mystery.solution.match(/^Guilty suspect:\s*(suspect_[123])\s*[-—–:]\s*([^.!\n]+)/i);
+  const culprit = culpritMarker && mystery.suspects.find(({ id, name }) =>
+    id === culpritMarker[1] && name.toLocaleLowerCase() === culpritMarker[2].trim().toLocaleLowerCase()
+  );
+  if (!culprit) validationPaths.push("solution");
+  if (culprit) {
+    const solutionText = normalize(mystery.solution);
+    if (mystery.clues.some(({ name }) => !solutionText.includes(normalize(name)))) {
+      validationPaths.push("solution.clues");
+    }
+    if (mystery.suspects.some(({ id, name }) => id !== culprit.id && !solutionText.includes(normalize(name)))) {
+      validationPaths.push("solution.suspects");
+    }
+    if (mystery.hints.some((hint) => normalize(hint).includes(normalize(culprit.name)))) {
+      validationPaths.push("hints");
+    }
+  }
+
+  return validationPaths.length
+    ? { success: false, validationPaths }
+    : { success: true, data: mystery, validationPaths: [] };
+}
+
 export class GeminiService {
   constructor() {
     this.apiKey = process.env.GEMINI_API_KEY || "";
@@ -115,121 +235,169 @@ export class GeminiService {
     }
 
     const priorCases = [...this.recentCases, ...recentCases.map(projectPriorCase)];
-    const recent = priorCases.slice(-12).map(({ title, premise, suspectNames, clueNames }) =>
-      `- Title: ${title}; premise: ${premise}; people already used: ${suspectNames.join(", ")}; evidence already used: ${clueNames.join(", ")}`
+    const recent = priorCases.slice(-8).map(({ title, premise }) =>
+      `- ${title}: ${premise}`
     ).join("\n") || "None yet.";
-    const basePrompt = `Create a new mystery for the Mind Maze game.\n\nTheme/setting: ${theme}\nDifficulty: ${difficulty} changes how hard the puzzle is, not the story.\nUnique generation identifier: ${generationId}\nRecent cases to avoid: ${recent}\n\nReturn one JSON object with exactly these fields: title, difficulty, story, suspects, clues, hints, solution.\n- Make a new story with a clear place, crime, people, and timeline. Do not copy or slightly change an old story. Make the theme clear.\n- Keep the case safe for a general audience. No graphic violence. The crime may be theft, damage, fraud, or a non-graphic murder.\n- Use exactly three suspects with ids suspect_1, suspect_2, suspect_3. Only one person did the crime. For each person, give a name, fictional adult age as a number, role, short background, relationship to this case, reason, story about where they were, and a first-person statement. Give the two innocent people secrets that are not about this crime. Use new names.\n- Give each suspect a different, clear personality. Their first-person statement should sound natural and conversational, not formal or robotic. Keep each statement true to that person's knowledge and facts. Do not reveal private thoughts, the culprit, or facts the player has not found.\n- Use exactly three clues with ids clue_1, clue_2, clue_3, types physical/forensic/testimony/document, and fields name, description, relevance. At least two clues must work together to show how and when the guilty person did it. Make all facts fit, and give the player all needed facts. Use new clues.\n- Give exactly three hints. Each hint should help more than the last. Do not name the guilty person in a hint.\n- The secret solution must start with this exact text: Guilty suspect: suspect_N — FULL NAME. Use each clue's exact name. Explain how the clues point to the guilty person, where that person's story does not match the facts, and why the other two people are innocent. Do not add new facts.\n- Write all player-facing text at about a 10th-grade reading level. Prefer common, everyday words, short sentences, and active voice. Usually keep sentences under 15 words. Avoid rare words, jargon, idioms, metaphors, formal wording, and long paragraphs. Keep mystery terms when they matter; explain an unfamiliar term in plain English in the same sentence. Do not make the reasoning or clues easier; keep the puzzle challenging through the facts.\n- Keep the story interesting and short (2-4 paragraphs). Set difficulty exactly to ${difficulty}.\n\nJSON shape: {"title":"...","difficulty":"${difficulty}","story":"...","suspects":[{"id":"suspect_1","name":"...","age":34,"role":"...","background":"...","relationship":"...","motive":"...","alibi":"...","statement":"..."},{"id":"suspect_2","name":"...","age":41,"role":"...","background":"...","relationship":"...","motive":"...","alibi":"...","statement":"..."},{"id":"suspect_3","name":"...","age":27,"role":"...","background":"...","relationship":"...","motive":"...","alibi":"...","statement":"..."}],"clues":[{"id":"clue_1","name":"...","type":"physical","description":"...","relevance":"..."},{"id":"clue_2","name":"...","type":"forensic","description":"...","relevance":"..."},{"id":"clue_3","name":"...","type":"document","description":"...","relevance":"..."}],"hints":["...","...","..."],"solution":"Guilty suspect: suspect_N — FULL NAME. ..."}`;
+    const generationPrompt = `Create a new, original Mind Maze mystery.
+Setting: ${theme}. Difficulty: exactly ${difficulty}.
+Variation ID: ${generationId}. Avoid these recent premises:
+${recent}
 
-    const scenePrompt = `\n\nAlso include a crime_scene object in the JSON and include it in the exact top-level field list. It must match the generated story and existing clues. Use scene_type mansion, museum, hotel, school, office, cyberpunk, or classic. Include a short name and description, exactly three areas (area_1 to area_3), and exactly three objects in each area. Objects use unique ids object_1 to object_9; categories are furniture, document, container, personal_item, fixture, or other. Give each object whole-number x (8-92) and y (12-88) positions, a short description, inspection_text, and closer_text. All text uses simple English, fits known case facts, and never names the culprit as guilty. Public scene names, area labels, and object names/descriptions must not state any exact clue name; use ordinary labels until closer inspection. Link each clue exactly once using evidence_id: clue_1, clue_2, or clue_3. Set evidence_id to null for ordinary objects. At least one clue must require a different existing clue first using requires_evidence_id. Other objects use requires_evidence_id: null. Do not add clues or facts. Exact shape: crime_scene {name, scene_type, description, areas:[{id,name,description,objects:[{id,name,category,x,y,description,inspection_text,closer_text,evidence_id,requires_evidence_id}]}]}. Each area has exactly three objects.`;
-    const generationPrompt = basePrompt
-      .replace("fields: title, difficulty, story, suspects, clues, hints, solution.", "fields: title, difficulty, story, suspects, clues, crime_scene, hints, solution.")
-      .replace("\n\nJSON shape:", "\n\nBase case JSON shape:");
-    let lastError;
-    const rejectedCases = [];
-    for (let attempt = 0; attempt < 2; attempt += 1) {
-      const retryInstruction = rejectedCases.length
-        ? `\n\nYour previous response was rejected. Fix the noted issue. Do not reuse any rejected title, premise, character, or evidence item; create a substantially different crime and investigative mechanism: ${JSON.stringify(rejectedCases.slice(-2))}`
+Return exactly one JSON object matching the supplied response schema. No Markdown or text outside the object.
+Make the story a clear 2-3 paragraph introduction: explain the crime, place, important people, and timeline. Use a fresh, solvable mystery suitable for a general audience; no graphic violence.
+Create exactly three distinct adult suspects. Give each a distinct personality, short background, case relationship, motive, alibi, and natural first-person statement. Keep each person's account consistent with the facts. Give innocent suspects unrelated private secrets.
+Create exactly three useful clues. At least two clues must work together to show how and when the crime happened. The facts must let the player identify one culprit without guessing.
+Create exactly three progressively helpful hints. Do not name or directly identify the culprit in player-facing text.
+Create one crime scene that matches the story. It must have three distinct areas and three objects in each area. Give each area and object concise, simple-English descriptions, inspection text, and closer-inspection text. Link every clue to exactly one object; ordinary objects use null evidence_id. At least one clue object must require a different clue first. Do not add facts or reveal a culprit in scene labels or object descriptions.
+The solution is secret and must start exactly: Guilty suspect: suspect_N — FULL NAME. Use the exact names of all three clues. Explain how the clues and timeline identify that suspect and clear the other two. Do not add facts.
+Keep all player-facing writing at about a 10th-grade reading level: short sentences, common words, and no jargon. Keep each field concise. Ensure every required field is present and non-empty.`;
+
+    const maxAttempts = 2;
+    const maxOutputTokens = 5000;
+    let modelIndex = 0;
+    let usedModelFallback = false;
+    let retryInstruction = "";
+    let lastFailure = { kind: "unknown", cause: new Error("No case candidate was received.") };
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      const model = models[modelIndex];
+      let response;
+      try {
+        response = await this.ai.models.generateContent({
+          model,
+          contents: `${generationPrompt}${retryInstruction}\nAttempt ${attempt}; variation token: ${randomUUID()}`,
+          config: {
+            candidateCount: 1,
+            responseMimeType: "application/json",
+            responseJsonSchema: MysteryResponseJsonSchema,
+            temperature: 0.8,
+            maxOutputTokens,
+          },
+        });
+      } catch (cause) {
+        const providerStatus = Number(cause?.status || cause?.statusCode || 0);
+        const canFallback = isUnavailableModelError(cause) && !usedModelFallback && models.length > 1;
+        lastFailure = { kind: "provider", cause };
+        console.warn("[GeminiService] Case generation request failed.", {
+          model,
+          attempt,
+          finishReason: null,
+          responseLength: 0,
+          tokenUsage: null,
+          jsonParsingSucceeded: null,
+          validationPaths: [],
+          status: providerStatus || null,
+          code: cause?.code || null,
+          errorType: cause?.name || "Error",
+        });
+        if (attempt >= maxAttempts || (!canFallback && !isTransientProviderFailure(cause))) break;
+        if (canFallback) {
+          modelIndex += 1;
+          usedModelFallback = true;
+          retryInstruction = "\nThe previous model could not serve this request. Return the complete case using the response schema.";
+        }
+        await delay(250 * attempt);
+        continue;
+      }
+
+      const candidates = Array.isArray(response.candidates) ? response.candidates : [];
+      const candidate = candidates[0];
+      const finishReason = candidate?.finishReason || null;
+      const parts = candidate?.content?.parts;
+      const rawText = Array.isArray(parts)
+        ? parts.filter((part) => typeof part.text === "string" && !part.thought).map((part) => part.text).join("").trim()
         : "";
-      let repeated = false;
-      let invalidCandidate = false;
-      // If every first-pass candidate is malformed, make one fresh focused retry
-      // with the configured primary model instead of returning an avoidable error.
-      const modelsToTry = attempt === 0 ? models : models.slice(0, 1);
-      for (const model of modelsToTry) {
-        let candidateReceived = false;
-        let responseMetadata = {};
+      let parsed;
+      let parseError;
+      if (rawText) {
         try {
-          const response = await this.ai.models.generateContent({
-            model,
-            contents: `${generationPrompt}${scenePrompt}${retryInstruction}\nGeneration attempt: ${attempt + 1}; variation token: ${randomUUID()}`,
-            config: { responseMimeType: "application/json", temperature: 1, maxOutputTokens: 8192 },
-          });
-          const rawText = response.text?.trim();
-          responseMetadata = {
-            finishReason: response.candidates?.[0]?.finishReason || null,
-            responseLength: rawText?.length || 0,
-          };
-          if (!rawText) throw new Error("Gemini returned an empty response.");
-          candidateReceived = true;
-          const mystery = MysteryGenerationSchema.parse(JSON.parse(cleanJson(rawText)));
-          if (mystery.difficulty !== difficulty) throw new Error("Generated case did not match the requested difficulty.");
-          const suspectIds = new Set(mystery.suspects.map((suspect) => suspect.id));
-          const clueIds = new Set(mystery.clues.map((clue) => clue.id));
-          if (suspectIds.size !== 3 || !["suspect_1", "suspect_2", "suspect_3"].every((id) => suspectIds.has(id))) {
-            throw new Error("Generated case has invalid suspect identifiers.");
-          }
-          if (clueIds.size !== 3 || !["clue_1", "clue_2", "clue_3"].every((id) => clueIds.has(id))) {
-            throw new Error("Generated case has invalid clue identifiers.");
-          }
-          const culpritMarker = mystery.solution.match(/^Guilty suspect:\s*(suspect_[123])\s*[-—–:]\s*([^.!\n]+)/i);
-          const culprit = culpritMarker && mystery.suspects.find(({ id, name }) =>
-            id === culpritMarker[1] && name.toLocaleLowerCase() === culpritMarker[2].trim().toLocaleLowerCase()
-          );
-          if (!culprit) throw new Error("Solution must begin with an exact guilty suspect id and name.");
-          const repeatedCase = duplicateOfRecentCase(mystery, priorCases);
-          if (repeatedCase) {
-            rejectedCases.push({ title: mystery.title, premise: mystery.story.slice(0, 220), characters: mystery.suspects.map(({ name }) => name), evidence: mystery.clues.map(({ name }) => name) });
-            const duplicateError = new Error("Gemini returned a case too similar to recent content.");
-            duplicateError.code = "REPEATED_CASE";
-            lastError = duplicateError;
-            repeated = true;
-            break;
-          }
-          const generated = {
-            ...mystery,
-            generation_id: generationId,
-            generation_source: "gemini",
-          };
-          this.recentCases.push(projectPriorCase(generated));
-          this.recentCases = this.recentCases.slice(-8);
-          return generated;
+          parsed = JSON.parse(extractJsonText(rawText));
         } catch (error) {
-          lastError = error;
-          if (candidateReceived) {
-            invalidCandidate = true;
-            rejectedCases.push({
-              validationIssue: error instanceof z.ZodError
-                ? `response validation failed at ${error.issues[0]?.path.join(".") || "unknown field"}`
-                : String(error.message || "Generated response was invalid").slice(0, 180),
-            });
-          }
-          console.warn("[GeminiService] Case generation attempt failed.", {
-            model,
-            status: error.status || error.statusCode || null,
-            code: error.code || null,
-            errorType: error.name || "Error",
-            reason: error instanceof z.ZodError
-              ? `response validation failed at ${error.issues[0]?.path.join(".") || "unknown field"}`
-              : error instanceof SyntaxError
-                ? "response JSON could not be parsed"
-                : error.status || error.statusCode || error.code
-                  ? "Gemini API request failed"
-                  : String(error.message || "Unknown error").slice(0, 180),
-            ...responseMetadata,
-          });
+          parseError = error;
         }
       }
-      if (!repeated) {
-        if (attempt === 0 && invalidCandidate) continue;
-        break;
+
+      let validation = { success: false, validationPaths: [] };
+      if (parsed !== undefined) validation = validateGeneratedMystery(parsed, difficulty);
+      const validationPaths = validation.success ? [] : validation.validationPaths;
+      let failureKind;
+      if (candidates.length !== 1) failureKind = "candidate_count";
+      else if (!rawText) failureKind = response.promptFeedback?.blockReason ? "blocked" : "empty";
+      else if (finishReason === "MAX_TOKENS") failureKind = "truncated";
+      else if (parseError) failureKind = isIncompleteJsonError(parseError) ? "truncated" : "malformed_json";
+      else if (finishReason && finishReason !== "STOP") failureKind = "rejected";
+      else if (!validation.success) failureKind = "validation";
+      else if (duplicateOfRecentCase(validation.data, priorCases)) failureKind = "duplicate";
+
+      const usage = response.usageMetadata;
+      const diagnostics = {
+        model,
+        modelVersion: response.modelVersion || null,
+        attempt,
+        finishReason,
+        responseLength: rawText.length,
+        tokenUsage: usage ? {
+          promptTokenCount: usage.promptTokenCount ?? null,
+          candidatesTokenCount: usage.candidatesTokenCount ?? null,
+          totalTokenCount: usage.totalTokenCount ?? null,
+        } : null,
+        candidateCount: candidates.length,
+        jsonParsingSucceeded: parsed !== undefined,
+        validationPaths,
+      };
+      console.info("[GeminiService] Case generation response.", diagnostics);
+
+      if (!failureKind) {
+        const generated = {
+          ...validation.data,
+          generation_id: generationId,
+          generation_source: "gemini",
+        };
+        this.recentCases.push(projectPriorCase(generated));
+        this.recentCases = this.recentCases.slice(-8);
+        return generated;
       }
+
+      lastFailure = { kind: failureKind, cause: parseError || new Error(failureKind) };
+      if (attempt >= maxAttempts || failureKind === "blocked" || failureKind === "rejected") break;
+
+      if (failureKind === "truncated") {
+        retryInstruction = "\nThe previous response was cut short. Return a complete but concise case. Shorten descriptions and statements; include every required property and all three areas.";
+      } else if (failureKind === "malformed_json") {
+        retryInstruction = "\nThe previous response was not valid JSON. Follow the response schema exactly, quote every property name, and return no Markdown or surrounding text.";
+      } else if (failureKind === "validation") {
+        retryInstruction = `\nThe previous response failed required checks at: ${validationPaths.join(", ") || "case fields"}. Correct those fields, keep all descriptions concise, and return every required field.`;
+      } else if (failureKind === "duplicate") {
+        retryInstruction = "\nThe previous case repeated recent content. Create a substantially different crime, setting details, cast, and clues while following the response schema.";
+      } else {
+        retryInstruction = "\nThe previous response was empty or had an unexpected candidate count. Return exactly one complete case object matching the response schema.";
+      }
+      await delay(250 * attempt);
     }
 
-    const providerStatus = Number(lastError?.status || lastError?.statusCode || 0);
-    const transientProviderFailure = [408, 429, 500, 502, 503, 504].includes(providerStatus) ||
-      ["UNAVAILABLE", "RESOURCE_EXHAUSTED"].includes(lastError?.code);
-    const invalidResponse = lastError instanceof SyntaxError || lastError instanceof z.ZodError;
+    const finalFailure = lastFailure.kind;
+    const providerStatus = Number(lastFailure.cause?.status || lastFailure.cause?.statusCode || 0);
+    const transientProviderFailure = isTransientProviderFailure(lastFailure.cause);
     const message = transientProviderFailure
       ? "Gemini is temporarily busy. Please wait a moment and try generating the case again."
       : providerStatus === 401 || providerStatus === 403
         ? "Gemini rejected the server credentials. Please contact the app administrator."
-        : invalidResponse
-          ? "Gemini returned an incomplete case. Please retry; no case was saved."
-          : "Mind Maze could not generate a valid case. Please try again in a moment.";
+        : finalFailure === "truncated"
+          ? "Gemini's response was truncated before the case was complete. No case was saved; please retry."
+          : finalFailure === "malformed_json"
+            ? "Gemini returned invalid JSON. No case was saved; please retry."
+            : finalFailure === "validation"
+              ? "Gemini's case was missing required information. No case was saved; please retry."
+              : finalFailure === "empty" || finalFailure === "candidate_count"
+                ? "Gemini did not return one complete case. No case was saved; please retry."
+                : finalFailure === "duplicate"
+                  ? "Gemini returned a case too similar to recent content. Please retry."
+                  : "Mind Maze could not generate a valid case. Please try again in a moment.";
     const error = new Error(message);
-    error.statusCode = transientProviderFailure ? 503 : providerStatus === 401 || providerStatus === 403 ? 503 : 502;
-    error.retryable = transientProviderFailure || invalidResponse || !providerStatus;
-    error.cause = lastError;
+    error.statusCode = transientProviderFailure || providerStatus === 401 || providerStatus === 403 ? 503 : 502;
+    error.retryable = transientProviderFailure ||
+      ["truncated", "malformed_json", "validation", "empty", "candidate_count", "duplicate"].includes(finalFailure);
+    error.cause = lastFailure.cause;
     throw error;
   }
 
@@ -257,7 +425,7 @@ Context: ${JSON.stringify(context)}`;
         contents: prompt,
         config: { responseMimeType: "application/json", temperature: 0.2, maxOutputTokens: 256 },
       });
-      const parsed = JSON.parse(cleanJson(response.text?.trim() || ""));
+      const parsed = JSON.parse(extractJsonText(response.text || ""));
       const schema = z.object({
         definition: z.string().trim().min(10).max(180),
         example: z.string().trim().min(10).max(180),

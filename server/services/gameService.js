@@ -1,11 +1,16 @@
 import { supabase } from "../config/supabase.js";
-import { geminiService } from "./geminiService.js";
+import { geminiService, validateGeneratedMystery } from "./geminiService.js";
 import { randomUUID } from "node:crypto";
 import { caseVisualService } from "./caseVisualService.js";
 import { crimeSceneService } from "./crimeSceneService.js";
 import { hasValidGeneratedScene } from "./crimeSceneSchema.js";
 
 export class GameService {
+  constructor({ database = supabase, caseGenerator = geminiService } = {}) {
+    this.database = database;
+    this.caseGenerator = caseGenerator;
+  }
+
   static calculatePointsEarned(difficulty, hintCount) {
     const pointsByDifficulty = { easy: 100, medium: 200, hard: 300 };
     const basePoints = pointsByDifficulty[difficulty];
@@ -175,7 +180,7 @@ export class GameService {
   async createMystery(userId, { difficulty = "medium", theme = "Noir Detective" }) {
     const generationId = randomUUID();
     // Give Gemini the player's recent case premises so it can avoid repetition.
-    const { data: recentCases, error: historyError } = await supabase
+    const { data: recentCases, error: historyError } = await this.database
       .from("games")
       .select("title, story, suspects, clues")
       .eq("user_id", userId)
@@ -191,7 +196,23 @@ export class GameService {
       throw error;
     }
 
-    const mystery = await geminiService.generateMystery({ difficulty, theme, recentCases: recentCases || [], generationId });
+    const generatedMystery = await this.caseGenerator.generateMystery({
+      difficulty,
+      theme,
+      recentCases: recentCases || [],
+      generationId,
+    });
+    const validation = validateGeneratedMystery(generatedMystery, difficulty);
+    if (!validation.success) {
+      console.error("[GameService.createMystery] Generated case failed persistence validation.", {
+        validationPaths: validation.validationPaths,
+      });
+      const error = new Error("The generated case was incomplete and was not saved. Please try again.");
+      error.statusCode = 502;
+      error.retryable = true;
+      throw error;
+    }
+    const mystery = validation.data;
 
     const newGame = {
       // The existing UUID primary key doubles as the unique generation identifier.
@@ -212,7 +233,7 @@ export class GameService {
       updated_at: new Date().toISOString(),
     };
 
-    const { data, error } = await supabase
+    const { data, error } = await this.database
       .from("games")
       .insert([newGame])
       .select()

@@ -145,7 +145,7 @@ To enable live AI generation using Gemini:
    ```
 3. Restart the server (`npm start` in `server/`).
 
-Mind Maze requires a server-side `GEMINI_API_KEY` to generate cases. Case generation returns a retryable service error when Gemini is unavailable; it never substitutes a repeated sample mystery. Keep this key in `server/.env` only. Never use a `VITE_` variable for the Gemini key. The Gemini Developer API currently lists `gemini-3.5-flash-lite` as a supported model identifier; the service also tries its configured fallback identifiers. [Google's model list](https://ai.google.dev/gemini-api/docs/models)
+Mind Maze requires a server-side `GEMINI_API_KEY` to generate cases. Generation uses Gemini's structured JSON response schema, validates the complete mystery before saving, and makes at most one focused retry for incomplete output. A model fallback is attempted only if the configured model is unavailable. Failed or incomplete responses are never saved, and generation diagnostics contain response metadata and validation paths—not case text, solutions, or credentials. Keep the key in `server/.env` only; never use a `VITE_` variable for the Gemini key. The Gemini Developer API supports the configured `gemini-3.5-flash-lite` model and structured output. [Google's model list](https://ai.google.dev/gemini-api/docs/models) and [structured output guide](https://ai.google.dev/gemini-api/docs/structured-output)
 
 ---
 
@@ -156,6 +156,12 @@ To test the frontend build:
 cd client
 npm run build
 npm run lint
+```
+
+To run backend unit tests:
+```bash
+cd server
+node --test services/*.test.js
 ```
 
 The server integration audit is available with `cd server && npm test`. It requires working Gemini and Supabase credentials and creates then removes temporary test records.

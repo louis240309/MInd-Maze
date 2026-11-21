@@ -58,24 +58,44 @@ const sampleCase = (theme, variation) => ({
     ],
   },
   hints: ["Check who could enter the room.", "Compare the thread with each person's clothes.", "Use the late entry to check the alibis."],
-  solution: `Guilty suspect: suspect_1 — Ari ${variation}. The thread and door log match Ari's path. Bea and Cal have matching alibis.`,
+  solution: `Guilty suspect: suspect_1 — Ari ${variation}. Blue thread ${variation}, Door log ${variation}, and Dust mark ${variation} place Ari at the scene. Bea ${variation} and Cal ${variation} have alibis that match the evidence.`,
 });
+
+const generationResponse = (text, finishReason = "STOP") => ({
+  candidates: [{
+    finishReason,
+    content: { parts: text === undefined ? [] : [{ text }] },
+  }],
+  usageMetadata: { promptTokenCount: 100, candidatesTokenCount: 200, totalTokenCount: 300 },
+});
+
+const generationService = (generateContent) => Object.assign(Object.create(GeminiService.prototype), {
+  apiKey: "test-key",
+  recentCases: [],
+  ai: { models: { generateContent } },
+});
+
+const sequenceService = (responses) => {
+  const requests = [];
+  const service = generationService(async (request) => {
+    requests.push(request);
+    const response = responses[Math.min(requests.length - 1, responses.length - 1)];
+    return typeof response === "function" ? response(request) : response;
+  });
+  return { service, requests };
+};
 
 test("three theme samples preserve the facts and follow a simple-English prompt", async () => {
   const prompts = [];
-  const service = Object.assign(Object.create(GeminiService.prototype), {
-    apiKey: "test-key",
-    recentCases: [],
-    ai: {
-      models: {
-        generateContent: async ({ contents }) => {
-          prompts.push(contents);
-          const variation = prompts.length;
-          const themes = ["Mansion", "Museum", "Hotel"];
-          return { text: JSON.stringify(sampleCase(themes[variation - 1], variation)) };
-        },
-      },
-    },
+  const service = generationService(async ({ contents, config }) => {
+    prompts.push(contents);
+    assert.equal(config.candidateCount, 1);
+    assert.equal(config.responseMimeType, "application/json");
+    assert.equal(config.maxOutputTokens, 5000);
+    assert.equal(config.responseJsonSchema.additionalProperties, false);
+    const variation = prompts.length;
+    const themes = ["Mansion", "Museum", "Hotel"];
+    return generationResponse(JSON.stringify(sampleCase(themes[variation - 1], variation)));
   });
 
   const cases = [];
@@ -90,33 +110,94 @@ test("three theme samples preserve the facts and follow a simple-English prompt"
   assert.ok(cases.every(({ clues }) => clues.some(({ name }) => name.startsWith("Blue thread"))));
   assert.deepEqual(cases.map(({ crime_scene }) => crime_scene.scene_type), ["mansion", "museum", "hotel"]);
   assert.ok(prompts.every((prompt) => /10th-grade reading level/i.test(prompt)));
-  assert.ok(prompts.every((prompt) => /different, clear personality/i.test(prompt)));
-  assert.ok(prompts.every((prompt) => /crime_scene object/i.test(prompt)));
+  assert.ok(prompts.every((prompt) => /timeline/i.test(prompt)));
+  assert.ok(prompts.every((prompt) => /first-person statement/i.test(prompt)));
+  assert.ok(prompts.every((prompt) => /progressively helpful hints/i.test(prompt)));
 });
 
-test("case generation retries malformed JSON and allows a larger structured response", async () => {
-  let calls = 0;
-  const service = Object.assign(Object.create(GeminiService.prototype), {
-    apiKey: "test-key",
-    recentCases: [],
-    ai: {
-      models: {
-        generateContent: async ({ config }) => {
-          calls += 1;
-          assert.equal(config.maxOutputTokens, 8192);
-          return {
-            text: calls === 1 ? '{"incomplete":' : JSON.stringify(sampleCase("Mansion", 1)),
-            candidates: [{ finishReason: calls === 1 ? "MAX_TOKENS" : "STOP" }],
-          };
-        },
-      },
-    },
-  });
-
-  const generated = await service.generateMystery({ theme: "Mansion", difficulty: "medium", generationId: "retry-test" });
+test("truncated JSON is retried and accepted when the next response is complete", async () => {
+  const { service, requests } = sequenceService([
+    generationResponse('{"title":"unfinished'),
+    generationResponse(JSON.stringify(sampleCase("Mansion", 1))),
+  ]);
+  const generated = await service.generateMystery({ theme: "Mansion", difficulty: "medium", generationId: "truncated-test" });
 
   assert.equal(generated.title, "Mansion Mystery 1");
-  assert.equal(calls, 2);
+  assert.equal(requests.length, 2);
+  assert.match(requests[1].contents, /previous response was cut short/i);
+});
+
+test("malformed JSON is retried with a targeted formatting instruction", async () => {
+  const { service, requests } = sequenceService([
+    generationResponse('{"title": unquoted}'),
+    generationResponse(JSON.stringify(sampleCase("Mansion", 1))),
+  ]);
+  await service.generateMystery({ theme: "Mansion", difficulty: "medium", generationId: "malformed-test" });
+
+  assert.equal(requests.length, 2);
+  assert.match(requests[1].contents, /quote every property name/i);
+});
+
+test("a response missing required fields is retried without inventing defaults", async () => {
+  const incompleteCase = sampleCase("Mansion", 1);
+  delete incompleteCase.story;
+  const { service, requests } = sequenceService([
+    generationResponse(JSON.stringify(incompleteCase)),
+    generationResponse(JSON.stringify(sampleCase("Mansion", 2))),
+  ]);
+  const generated = await service.generateMystery({ theme: "Mansion", difficulty: "medium", generationId: "missing-field-test" });
+
+  assert.equal(generated.title, "Mansion Mystery 2");
+  assert.equal(requests.length, 2);
+  assert.match(requests[1].contents, /story/);
+});
+
+test("an empty Gemini response is retried and never treated as a case", async () => {
+  const { service, requests } = sequenceService([
+    generationResponse(undefined),
+    generationResponse(JSON.stringify(sampleCase("Mansion", 1))),
+  ]);
+  const generated = await service.generateMystery({ theme: "Mansion", difficulty: "medium", generationId: "empty-test" });
+
+  assert.equal(generated.title, "Mansion Mystery 1");
+  assert.equal(requests.length, 2);
+});
+
+test("an unexpected multiple-candidate response is rejected and retried", async () => {
+  const firstCandidate = generationResponse(JSON.stringify(sampleCase("Mansion", 1))).candidates[0];
+  const { service, requests } = sequenceService([
+    { candidates: [firstCandidate, firstCandidate] },
+    generationResponse(JSON.stringify(sampleCase("Mansion", 2))),
+  ]);
+  const generated = await service.generateMystery({ theme: "Mansion", difficulty: "medium", generationId: "multiple-candidate-test" });
+
+  assert.equal(generated.title, "Mansion Mystery 2");
+  assert.equal(requests.length, 2);
+  assert.equal(requests[0].config.candidateCount, 1);
+});
+
+test("a Gemini token-limit finish reason is classified as truncation and retried", async () => {
+  const { service, requests } = sequenceService([
+    generationResponse('{"incomplete":', "MAX_TOKENS"),
+    generationResponse(JSON.stringify(sampleCase("Mansion", 1))),
+  ]);
+  const generated = await service.generateMystery({ theme: "Mansion", difficulty: "medium", generationId: "token-limit-test" });
+
+  assert.equal(generated.title, "Mansion Mystery 1");
+  assert.equal(requests.length, 2);
+  assert.equal(requests[0].config.maxOutputTokens, 5000);
+});
+
+test("generation fails after the bounded retry limit for malformed responses", async () => {
+  const { service, requests } = sequenceService([
+    generationResponse('{"title": unquoted}'),
+  ]);
+
+  await assert.rejects(
+    service.generateMystery({ theme: "Mansion", difficulty: "medium", generationId: "retry-limit-test" }),
+    (error) => error.statusCode === 502 && /invalid JSON/i.test(error.message),
+  );
+  assert.equal(requests.length, 2);
 });
 
 test("unknown word explanations send only the word and selected context in one call", async () => {
