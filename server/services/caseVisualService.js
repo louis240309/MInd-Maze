@@ -11,10 +11,11 @@ const themePatterns = [
 const evidenceMotifs = [
   { key: "document", pattern: /\b(note|letter|document|log|record|report|schedule|diary|paper|receipt|contract|message)\b/i },
   { key: "key", pattern: /\b(key|keycard|badge|lock|access card)\b/i },
-  { key: "footprint", pattern: /\b(footprint|shoe|scuff|track|fiber|thread|hair|fabric)\b/i },
+  { key: "fiber", pattern: /\b(fiber|thread|hair|fabric)\b/i },
+  { key: "footprint", pattern: /\b(footprint|shoe|scuff|track)\b/i },
   { key: "glass", pattern: /\b(glass|vial|bottle|container|shard|flask)\b/i },
   { key: "timepiece", pattern: /\b(clock|watch|timestamp|time|timer|schedule)\b/i },
-  { key: "jewelry", pattern: /\b(jewel|ring|necklace|diamond|ornament|artifact)\b/i },
+  { key: "jewelry", pattern: /\b(jewel|ring|necklace|diamond|ornament)\b/i },
 ];
 
 const text = (value) => typeof value === "string" ? value : "";

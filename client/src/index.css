@@ -395,6 +395,7 @@ a {
 .case-visual-placeholder .art-metal { fill: #aeb8b2; stroke: #515f63; stroke-width: 8; }
 .case-visual-placeholder .art-cutout { fill: #202a32; stroke: #7d8b87; stroke-width: 4; }
 .case-visual-placeholder .art-print { fill: #b69470; stroke: #e0c49b; stroke-width: 3; }
+.case-visual-placeholder .art-fiber { fill: none; stroke: #72a8aa; stroke-width: 7; stroke-linecap: round; }
 .case-visual-placeholder .art-glass { fill: rgba(113, 169, 180, .2); stroke: #b4d4d3; stroke-width: 6; stroke-linejoin: round; }
 .case-visual-placeholder .art-glass-fill { fill: rgba(168, 111, 95, .65); }
 .case-visual-placeholder .art-jewel { fill: #736185; stroke: #d6bd90; stroke-width: 5; }

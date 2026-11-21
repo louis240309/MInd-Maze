@@ -30,6 +30,15 @@ const CLIENT_THEME_PATTERNS = [
   ["hotel", /\b(hotel|inn|resort|suite|lobby|room service)\b/i],
   ["cyberpunk", /\b(cyberpunk|neon|android|robot|orbital|space station|data center)\b/i],
 ];
+const CLIENT_EVIDENCE_PATTERNS = [
+  ["document", /\b(note|letter|document|log|record|report|schedule|diary|paper|receipt|contract|message)\b/i],
+  ["key", /\b(key|keycard|badge|lock|access card)\b/i],
+  ["fiber", /\b(fiber|thread|hair|fabric)\b/i],
+  ["footprint", /\b(footprint|shoe|scuff|track)\b/i],
+  ["glass", /\b(glass|vial|bottle|container|shard|flask)\b/i],
+  ["timepiece", /\b(clock|watch|timestamp|time|timer)\b/i],
+  ["jewelry", /\b(jewel|ring|necklace|diamond|ornament)\b/i],
+];
 
 const fallbackVisualAssets = (game) => {
   const context = `${game.title || ""} ${game.story || ""}`;
@@ -42,7 +51,7 @@ const fallbackVisualAssets = (game) => {
       id: `local:evidence:${index}`,
       asset_type: "evidence",
       theme_key: themeKey,
-      motif: "evidence",
+      motif: CLIENT_EVIDENCE_PATTERNS.find(([, pattern]) => pattern.test(`${clue.name || ""} ${clue.description || ""} ${clue.type || ""}`))?.[0] || "evidence",
       related_id: clue.id || null,
       asset_key: `evidence_${clue.id || index + 1}`,
       name: clue.name,
@@ -502,6 +511,7 @@ export const InvestigationPage = () => {
         {activeTab === "Crime Scene" && <section className="case-file-panel">
           <h2 className="case-section-title"><Camera size={22} /> Crime scene &amp; locations</h2>
           <p className="case-file-caption">Original, locally rendered illustrations matched to this case theme.</p>
+          {visualError && <p className="case-visual-alert" role="status">{visualError} Local case artwork is shown instead.</p>}
           {visuals.error && <p className="case-visual-alert" role="status">{visuals.error}</p>}
           {caseVisualAssets.filter((asset) => asset.asset_type === "crime_scene").length ? <div className="case-visual-grid">{caseVisualAssets.filter((asset) => asset.asset_type === "crime_scene").map((asset) => <article className="case-visual-card" key={asset.id}><VisualImage asset={asset} onOpen={setSelectedImage} /><div className="case-visual-card-copy"><span className="evidence-stamp">SCENE FILE</span><h3>{asset.name}</h3><p>{asset.description}</p></div></article>)}</div> : <EmptyVisualState text={visualError || "Scene illustrations are not available for this case."} />}
         </section>}
@@ -534,9 +544,9 @@ export const InvestigationPage = () => {
               gap: "20px",
             }}
           >
-            {(game.suspects || []).map((suspect) => {
+            {(game.suspects || []).map((suspect, index) => {
               const isGuilty = suspect.id === culpritId;
-              const portrait = caseVisualAssets.find((asset) => asset.asset_type === "suspect" && (asset.related_id === suspect.id || asset.asset_key === `suspect_${suspect.id}`));
+              const portrait = caseVisualAssets.find((asset) => asset.asset_type === "suspect" && (asset.related_id === suspect.id || asset.asset_key === `suspect_${suspect.id || index + 1}`));
 
               return (
                 <SuspectCard
